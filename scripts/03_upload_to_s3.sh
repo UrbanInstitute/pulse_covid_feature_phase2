@@ -1,5 +1,5 @@
 bucket_name="ui-census-pulse-survey"
-endweek_padded="10"
+endweek_padded="12"
 
 sudo apt install awscli
 aws s3 cp data/intermediate-data/pulse_puf_all_weeks.csv s3://${bucket_name}/pulse_puf_most_recent.csv
