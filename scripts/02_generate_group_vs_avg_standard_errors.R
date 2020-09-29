@@ -8,12 +8,19 @@ library(survey)
 library(fastDummies)
 
 
+###### Notes on changes needed #######
+# - no rolling averages, remove code to calculate and use week_num for grouping
+# - use svy instead of svy_rolling
+# - update vars to reflect new list
 
 ##  Read in and clean data
-
-
-puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf_all_weeks.csv"))
-
+puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf_all_weeks.csv")) %>%
+  mutate(stimulus_expenses = as.numeric(stimulus_expenses),
+         spend_credit = as.numeric(spend_credit),
+         spend_savings = as.numeric(spend_savings),
+         spend_stimulus = as.numeric(spend_stimulus),
+         spend_ui = as.numeric(spend_ui))
+                          
 # Set parameters
 CUR_WEEK <- puf_all_weeks %>%
   pull(week_x) %>%
@@ -95,8 +102,9 @@ construct_overlap_intervals_df <- function(x) {
 
     x <- x - 1
   }
-  # sort alphabetically and repeat each twice
-  wk_int <- sort(interval_vec) %>% rep(each = 2)
+  
+  #reverse order and repeat each twice
+  wk_int <- rev(interval_vec) %>% rep(each = 2)
 
   ### Create dataframe
   result <- tibble(
@@ -149,48 +157,61 @@ get_se_diff <- function(..., svy = svy_rolling) {
     # if race indicator is total, then we compute mean of the geography,
     # and compare it to the mean of national estimates
     geo_formula <- as.formula(paste0("~", dots$geo_col))
-    x <- svyby(metric_formula, geo_formula, svy %>%
-      filter(week_num == dots$week),
-    svymean,
-    na.rm = T,
-    return.replicates = T,
-    covmat = T
-    )
-
-    mean <- x %>%
-      filter(!!sym(dots$geo_col) == 1) %>%
-      pull(!!sym(dots$metric))
-    se <- x %>%
-      filter(!!sym(dots$geo_col) == 1) %>%
-      pull(se) * 2
-    other_mean <- x %>%
-      filter(!!sym(dots$geo_col) == 0) %>%
-      pull(!!sym(dots$metric))
-    other_se <- x %>%
-      filter(!!sym(dots$geo_col) == 0) %>%
-      pull(se)
-
-    # Use svycontrast to calculate se bw geography and national estimates
-    contrast <- svycontrast(x, contrasts = list(diff = c(1, -1)))
-    diff_mean <- contrast %>% as.numeric()
-    diff_se <- contrast %>%
-      attr("var") %>%
-      sqrt() %>%
+    result <- tryCatch(
       {
-        . * 2
-      }
+        x <- svyby(metric_formula, geo_formula, svy %>%
+          srvyr::filter(week_num == dots$week),
+          svymean,
+          na.rm = T,
+          return.replicates = T,
+          covmat = T
+          )
 
-    result <- tibble(
-      mean = mean,
-      se = se,
-      other_mean = other_mean,
-      other_se = other_se,
-      diff_mean = diff_mean,
-      diff_se = diff_se
+      mean <- x %>%
+        filter(!!sym(dots$geo_col) == 1) %>%
+        pull(!!sym(dots$metric))
+      se <- x %>%
+        filter(!!sym(dots$geo_col) == 1) %>%
+        pull(se) * 2
+      other_mean <- x %>%
+        filter(!!sym(dots$geo_col) == 0) %>%
+        pull(!!sym(dots$metric))
+      other_se <- x %>%
+        filter(!!sym(dots$geo_col) == 0) %>%
+        pull(se)
+  
+      # Use svycontrast to calculate se bw geography and national estimates
+      contrast <- svycontrast(x, contrasts = list(diff = c(1, -1)))
+      diff_mean <- contrast %>% as.numeric()
+      diff_se <- contrast %>%
+        attr("var") %>%
+        sqrt() %>%
+        {
+          . * 2
+        }
+  
+      result <- tibble(
+        mean = mean,
+        se = se,
+        other_mean = other_mean,
+        other_se = other_se,
+        diff_mean = diff_mean,
+        diff_se = diff_se
+      ) },
+      error = function(err) {
+        data <- tibble(
+          mean = NA,
+          se = 0,
+          other_mean = NA,
+          other_se = 0,
+          diff_mean = 0,
+          diff_se = 0
+        )
+        return(data)
+      }
     )
-  }
   # if race_indicator isn't total, then compare subgroup to geography avg
-  else {
+   } else {
     # identify whether geography is state or cbsa
     geo_col_name <- ifelse(grepl("cbsa", dots$geo_col, fixed = TRUE), "cbsa_title", "state")
 
@@ -201,8 +222,8 @@ get_se_diff <- function(..., svy = svy_rolling) {
         # Use svyby to compute mean (and replicate means) for race and non race var population
         # (ie black and nonblack population)
         x <- svyby(metric_formula, race_formula, svy %>%
-          filter(!!sym(geo_col_name) == dots$geography) %>%
-          filter(week_num == dots$week),
+          srvyr::filter(!!sym(geo_col_name) == dots$geography) %>%
+          srvyr::filter(week_num == dots$week),
         svymean,
         na.rm = T,
         return.replicates = T,
@@ -304,8 +325,9 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_roll
   ) %>%
     left_join(geo_xwalk, by = "geo_col")
 
-  # for testing (as running on all 4080 combintaions takes up too much RAM)
-  #full_combo = full_combo %>% filter(race_indicator %in% c("black", "total") , metric == "rent_paid_last_month")
+  # for testing (as running on all combintaions takes up too much RAM)
+  # full_combo = full_combo %>% 
+  #   filter(week %in% c("wk10_11", "wk11_12"))
 
   # get mean and se for diff bw subgroup and (total population -subgroup)
   # Call the get_se_diff function on every row of full_combo
@@ -336,7 +358,7 @@ get_se_diff_us <- function(..., svy = svy_rolling) {
   race_formula <- as.formula(paste0("~", dots$race_indicator))
 
   x <- svyby(metric_formula, race_formula, svy %>%
-    filter(week_num == dots$week),
+    srvyr::filter(week_num == dots$week),
   svymean,
   na.rm = T,
   return.replicates = T,
@@ -403,6 +425,10 @@ generate_se_us <- function(metrics, race_indicators, svy = svy_rolling) {
     race_indicator = race_indicators,
     week = wks
   )
+  
+  # filter to new vars/ relevant weeks for testing
+  #full_combo = full_combo %>% 
+  #  filter(week %in% c("wk10_11", "wk11_12"))
 
   # get mean and se for diff bw subgroup and (total population -subgroup)
   se_info <- full_combo %>% pmap_df(get_se_diff_us)
@@ -428,8 +454,12 @@ metrics <- c(
   "mortgage_not_paid",
   "food_insufficient",
   "classes_cancelled",
-  "depression_anxiety_signs"
-)
+  "depression_anxiety_signs",
+  "stimulus_expenses", 
+  "spend_credit", 
+  "spend_ui", 
+  "spend_stimulus", 
+  "spend_savings")
 race_indicators <- c("black", "asian", "hispanic", "white", "other", "total")
 
 # Update: ran on c5.4xlarge instance and took 3 hours
@@ -450,7 +480,7 @@ write.csv(us_diff_ses, here("data/intermediate-data", "us_diff_ses.csv"))
 # functions to calculate US total means/SEs
 calculate_se_us_total <- function(metric, svy) {
   se_df <- svy %>%
-    filter(!is.na(!!sym(metric))) %>%
+    srvyr::filter(!is.na(!!sym(metric))) %>%
     group_by(week_num) %>%
     summarise(mean = survey_mean(!!sym(metric), na.rm = TRUE)) %>%
     # pull(out) %>%
@@ -515,4 +545,27 @@ us_diff_ses_out <- us_diff_ses %>%
 
 
 rolling_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_rolling_out)
-write_csv(rolling_all, here("data/final-data", "rolling_all_to_current_week.csv"))
+
+week_crosswalk <- tibble::tribble(
+  ~week_num, ~date_int,
+  "wk1_2", paste("4/23\u2013", "5/12", sep = ""),
+  "wk2_3", paste("5/7\u2013", "5/19", sep = ""),
+  "wk3_4", paste("5/14\u2013", "5/26", sep = ""),
+  "wk4_5", paste("5/21\u2013", "6/2", sep = ""),
+  "wk5_6", paste("5/28\u2013", "6/9", sep = ""),
+  "wk6_7", paste("6/4\u2013", "6/16", sep = ""),
+  "wk7_8", paste("6/11\u2013", "6/23", sep = ""),
+  "wk8_9", paste("6/18\u2013", "6/30", sep = ""),
+  "wk9_10", paste("6/25\u2013", "7/7", sep = ""),
+  "wk10_11", paste("7/2\u2013", "7/14", sep = ""),
+  "wk11_12", paste("7/9\u2013", "7/21", sep = "")
+  
+)
+
+data_out <- left_join(rolling_all, week_crosswalk, by = "week_num") %>%
+  arrange(metric, race_var, geography,
+          factor(week_num, 
+                 levels = c("wk1_2", "wk2_3", "wk3_4", "wk4_5", "wk5_6", "wk6_7", "wk7_8", 
+                            "wk8_9", "wk9_10", "wk10_11", "wk11_12")))
+
+write_csv(data_out, here("data/final-data", "rolling_all_to_current_week.csv"))

@@ -8,6 +8,13 @@ library(tidyverse)
 library(httr)
 library(here)
 
+###### Notes on Changes Needed #########
+# - add new vars
+# - check to confirm var names unchanged
+# - double check denominators where new options added (e.g. spend vars need to all add spndsrc8 >= 0 to denom)
+# - remove class_cancelled and stimulus_expenses
+# - update var names/definitions for rent_not_paid and mortgage_not_paid
+# - update data dictionary
 
 download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-data/public_use_files/") {
   # Function to download in Pulse Public Use File for a given week, and add:
@@ -22,8 +29,15 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   #   9) indicator variable for if a person has low to no confidence in paying mortgage next month or has already deferred (mortgage_not_conf)
   #   10)joint indicator variable for if a person has either 8 or 9, (payment_not_conf)
   #   11)adjusted score columns for the mental health questions
-  #   12)indicator variables for if a person displays signs of anxiety (anxiety_signs)
-  #   13)indicator variabels for if a person displays signs of depression (depression_signs)
+  #   12)indicator variable for if a person displays signs of anxiety (anxiety_signs)
+  #   13)indicator variable for if a person displays signs of depression (depression_signs)
+  #   14) indicator variable for if a person did not pay rent last month or has already deferred (rent_not_paid)
+  #   15) indicator variable for if a person did not pay mortgage last month or has already deferred (mortgage_not_paid)
+  #   16) indicator variable for if a person that received stimulus payment used it on expenses (stimulus_expenses)
+  #   17) indicator variable for if a person used credit cards or loans to meet spending needs in past 7 days (spend_credit)
+  #   18) indicator variable for if a person used savings to meet spending needs in past 7 days (spend_savings)
+  #   19) indicator variable for if a person used UI benefits to meet spending needs in past 7 days (spend_ui)
+  #   20) indicator variable for if a person used stimulus payment to meet spending needs in past 7 days (spend_stimulus)
 
 
   # INPUT:
@@ -80,7 +94,18 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   rep_wt <- read_csv(rep_wt_filepath) %>%
     janitor::clean_names()
 
-
+  # add missing variables for weeks before 7
+  if (week_num < 7) {
+    df <- df %>%
+      mutate(eip = NA_real_,
+             spndsrc1 = NA_real_,
+             spndsrc2 = NA_real_,
+             spndsrc3 = NA_real_,
+             spndsrc4 = NA_real_,
+             spndsrc5 = NA_real_,
+             spndsrc6 = NA_real_,
+             spndsrc7 = NA_real_)
+  }  
 
 
   df_clean <- df %>%
@@ -205,6 +230,49 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         # Set NA otherwise
         TRUE ~ NA_real_
       ),
+      # Dummy variable for spending stimulus payment on expenses
+      # Note that universe is all persons born before 2002
+      stimulus_expenses = as.numeric(case_when(
+        eip == 1 ~ 1,
+        eip %in% c(2, 3) ~ 0,
+        TRUE ~ NA_real_
+      )),
+      spend_credit = as.numeric(case_when(
+        #set 1 if respondent answered they use credit cards or loans
+        spndsrc2 == 1 ~ 1,
+        # Set 0 if respondent answered atleast one of the spending questions
+        (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+        # Set NA otherwise
+        TRUE ~ NA_real_
+      )),
+      spend_savings = as.numeric(case_when(
+        #set 1 if respondent answered they use savings or selling assets
+        spndsrc3 == 1 ~ 1,
+        # Set 0 if respondent answered at least one of the spending questions
+        (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+        # Set NA otherwise
+        TRUE ~ NA_real_
+      )),
+      spend_ui = as.numeric(case_when(
+        #set 1 if respondent answered they use creditcards or loans
+        spndsrc5 == 1 ~ 1,
+        # Set 0 if respondent answered at least one of the spending questions
+        (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+        # Set NA otherwise
+        TRUE ~ NA_real_
+      )),
+      spend_stimulus = as.numeric(case_when(
+        #set 1 if respondent answered they use creditcards or loans
+        spndsrc6 == 1 ~ 1,
+        # Set 0 if respondent answered atleast one of the child education questions
+        (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+        # Set NA otherwise
+        TRUE ~ NA_real_
+      )),
       # Score variables for mental health qs. Note we use scoring scheme laid out here:
       # https://www.cdc.gov/nchs/covid19/pulse/mental-health.htm which requires recoding
       # the 4 mental health questions to thier specific scores. If sum of sets of 2 qs
@@ -286,8 +354,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 }
 
 
-CUR_WEEK <- 10
-week_vec <- c(1:CUR_WEEK)
+CUR_WEEK <- 13
+week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
 # week_num that differentiates microdata from each week.
@@ -318,6 +386,11 @@ appended_column_data_dictionary <-
     "mortgage_not_paid", "Indicator variable for if a respondent did not pay thier mortgage last month or deferred. This is a limited to owners paying mortgage (ie tenure ==2)",
     "food_insufficient", "Indicator variable for if a respondents household has sometimes or often had not enough to eat in the last 7 days. This is essentially a recoding of the curfoodsuff variable where 3 and 4 are coded as 1, 1 and 3 are coded as 0, and -88 and -99 are coded as NA",
     "classes_cancelled", "Indicator variable for if a responent's child has had classes which are normally taught in person cancelled due to the coronavirus. Note this question was only asked to households with children enrolled in public or private school. This is essentially a recoding of the teach1 variable where 1 was coded as 1,  respondents who responded to atleast one of teach1, teach2, teach3, teach4 or teach5 were coded as 0, and NA otherwise",
+    "stimulus_expenses", "Indicator variable for if a respondent that received a stimulus payment used it mostly for expenses. Note that universe is all persons born before 2002.",
+    "spend_savings", "Indicator variable for if a respondent reported using money from savings or selling assets in last 7 days to meet spending needs",
+    "spend_credit", "Indicator variable for if a respondent reported using money from credit cards or loans in last 7 days to meet spending needs",
+    "spend_ui", "Indicator variable for if a respondent reported using money from unemployment insurance (UI) benefit payments in last 7 days to meet spending needs",
+    "spend_stimulus", "Indicator variable for if a respondent reported using money from stimulus (economic impact) payment in last 7 days to meet spending needs",
     "anxious_score", "A recoding of the anxious variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
     "worry_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
     "interest_score", "A recoding of the interest variable to correctly reflect the numerical scores used to determine symptoms of major depresive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
