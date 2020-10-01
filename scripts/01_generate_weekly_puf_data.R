@@ -86,7 +86,6 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
     # There seem to be some duplicate entries, so we remove them
     distinct(.keep_all = TRUE)
 
-
   ### Read in PUF file and weights file
   puf_filepath <- str_glue("{output_filepath}pulse2020_puf_{week_num_padded}.csv")
   rep_wt_filepath <- str_glue("{output_filepath}pulse2020_repwgt_puf_{week_num_padded}.csv")
@@ -202,17 +201,17 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       # Dummy var caught up on rent (1 = yes, 0 = no)
       rent_caughtup = case_when(
         # did not pay on time or payment deferred = 1
-        RENTCUR ==1 & tenure == 3 ~ 1,
+        rentcur ==1 & tenure == 3 ~ 1,
         # paid on time = 0
-        RENTCUR == 2 & tenure == 3 ~ 0,
+        rentcur == 2 & tenure == 3 ~ 0,
         TRUE ~ NA_real_
       ),
       # Dummy var for caught up on mortage (1 = yes, 0 = no)
       mortgage_caughtup = case_when(
         # slight or no confidnece or payment already deferred = 1
-        MORTCUR ==1 & tenure == 2 ~ 1,
+        mortcur ==1 & tenure == 2 ~ 1,
         # moderate or high confidence = 0
-        MORTCUR == 1 & tenure == 2 ~ 0,
+        mortcur == 1 & tenure == 2 ~ 0,
         TRUE ~ NA_real_
       ),
       # Dummy var for Food Insufficient households
@@ -226,7 +225,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc2 == 1 ~ 1,
         # Set 0 if respondent answered atleast one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -235,7 +234,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc3 == 1 ~ 1,
         # Set 0 if respondent answered at least one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -244,7 +243,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc5 == 1 ~ 1,
         # Set 0 if respondent answered at least one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -253,7 +252,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc6 == 1 ~ 1,
         # Set 0 if respondent answered atleast one of the child education questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -291,38 +290,39 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       ),
       #YS PULSE 2 update- adding new vars
       #difficulty paying household expenses in past 7 days
-      expense_dif= case_when(EXPNS_DIF >= 3 ~1,
-      EXPNS_DIF %in% c(1, 2) ~ 0,
+      expense_dif= case_when(
+      expns_dif >= 3 ~ 1,
+      expns_dif %in% c(1, 2) ~ 0,
       TRUE ~ NA_REAL_
       ),
       #dummy for telework
-      telework= case_when(TW_START == 1 ~ 1,
-                          TW_START %in% c(2, 3) ~ 0,
+      telework= case_when(tw_start == 1 ~ 1,
+                          tw_start %in% c(2, 3) ~ 0,
                           TRUE ~ NA_REAL_
       ),
       #dummy for unmet need for mental health services in last 4 weeks
-      mentalhealth_unmet= case_when(MH_NOTGET == 1 ~ 1,
-                                    MH_NOTGET == 0 ~ 0,
+      mentalhealth_unmet= case_when(mh_notget == 1 ~ 1,
+                                    mh_notget == 0 ~ 0,
                                     TRUE ~ NA_REAL_
       ),
       #dummy for eviction risk
-      eviction_risk = case_when(EVICT %in% c(1, 2) ~ 1,
-                                EVICT %in% c(3, 4) ~ 0,
+      eviction_risk = case_when(evict %in% c(1, 2) ~ 1,
+                                evict %in% c(3, 4) ~ 0,
                                 TRUE ~ NA_REAL_
       ),
       #dummy for foreclosure risk
-      foreclosure_risk = case_when(FORCLOSE %in% c(1, 2) ~ 1,
-                                   FORCLOSE %in% c(3, 4) ~ 0,
+      foreclosure_risk = case_when(forclose %in% c(1, 2) ~ 1,
+                                   forclose %in% c(3, 4) ~ 0,
                                    TRUE ~ NA_REAL_
       ),
       #dummy for Proportion of adults with children in school who spend fewer 
       #hours on learning activities in the past 7 days relative to before the pandemic
-      learning_fewer= case_when(TCH_HRS %in% c(1, 2) ~ 1,
-                                TCH_HRS >= 3 ~ 0,
+      learning_fewer= case_when(tch_hrs %in% c(1, 2) ~ 1,
+                                tch_hrs >= 3 ~ 0,
                                 TRUE ~ NA_REAL_
       ),
       #SNAP spending
-      snap_spending = case_when(SPNDSRC8 == 1 ~ 1,
+      spending_snap = case_when(spndsrc8 == 1 ~ 1,
       (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0 | spndsrc8 >= 0) ~ 0
       )
     ) %>%
@@ -422,7 +422,7 @@ appended_column_data_dictionary <-
     "eviction_risk", "Indicator for the likelihood of the household will have to leave this home or apartment within the next two months because of eviction",
     "foreclosure_risk", "Indicator for the likelihood of the household will have to leave this home within the next two months because of foreclosure",
     "learning_fewer", "Indicator for the student(s) spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
-    "snap_spending", "Indicator for household members using SNAP to meet their spending needs in the past 7 days",
+    "spending_snap", "Indicator for household members using SNAP to meet their spending needs in the past 7 days",
     "week_num", "The week number that the survey data is from",
     "state", "2 digit abbrevation of the state that respondents are from",
     "state_name", "The full name of the state that respondents are from",
