@@ -293,36 +293,36 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       expense_dif= case_when(
       expns_dif >= 3 ~ 1,
       expns_dif %in% c(1, 2) ~ 0,
-      TRUE ~ NA_REAL_
+      TRUE ~ NA_real_
       ),
       #dummy for telework
       telework= case_when(tw_start == 1 ~ 1,
                           tw_start %in% c(2, 3) ~ 0,
-                          TRUE ~ NA_REAL_
+                          TRUE ~ NA_real_
       ),
       #dummy for unmet need for mental health services in last 4 weeks
       mentalhealth_unmet= case_when(mh_notget == 1 ~ 1,
                                     mh_notget == 0 ~ 0,
-                                    TRUE ~ NA_REAL_
+                                    TRUE ~ NA_real_
       ),
       #dummy for eviction risk
       eviction_risk = case_when(evict %in% c(1, 2) ~ 1,
                                 evict %in% c(3, 4) ~ 0,
-                                TRUE ~ NA_REAL_
+                                TRUE ~ NA_real_
       ),
       #dummy for foreclosure risk
       foreclosure_risk = case_when(forclose %in% c(1, 2) ~ 1,
                                    forclose %in% c(3, 4) ~ 0,
-                                   TRUE ~ NA_REAL_
+                                   TRUE ~ NA_real_
       ),
       #dummy for Proportion of adults with children in school who spend fewer 
       #hours on learning activities in the past 7 days relative to before the pandemic
       learning_fewer= case_when(tch_hrs %in% c(1, 2) ~ 1,
                                 tch_hrs >= 3 ~ 0,
-                                TRUE ~ NA_REAL_
+                                TRUE ~ NA_real_
       ),
       #SNAP spending
-      spending_snap = case_when(spndsrc8 == 1 ~ 1,
+      spend_snap = case_when(spndsrc8 == 1 ~ 1,
       (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0 | spndsrc8 >= 0) ~ 0
       )
     ) %>%
@@ -422,7 +422,7 @@ appended_column_data_dictionary <-
     "eviction_risk", "Indicator for the likelihood of the household will have to leave this home or apartment within the next two months because of eviction",
     "foreclosure_risk", "Indicator for the likelihood of the household will have to leave this home within the next two months because of foreclosure",
     "learning_fewer", "Indicator for the student(s) spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
-    "spending_snap", "Indicator for household members using SNAP to meet their spending needs in the past 7 days",
+    "spend_snap", "Indicator for household members using SNAP to meet their spending needs in the past 7 days",
     "week_num", "The week number that the survey data is from",
     "state", "2 digit abbrevation of the state that respondents are from",
     "state_name", "The full name of the state that respondents are from",

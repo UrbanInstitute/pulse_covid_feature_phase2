@@ -9,12 +9,13 @@ library(fastDummies)
 
 
 ###### Notes on changes needed #######
-# - no rolling averages, remove code to calculate and use week_num for grouping
-# - use svy instead of svy_rolling
-# - update vars to reflect new list
+# -done- no rolling averages, remove code to calculate and use week_num for grouping
+# -done- use svy instead of svy_rolling
+# -done- update vars to reflect new list
+# - confirm non-rolling week_num var/structure
 
 ##  Read in and clean data
-puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf_all_weeks.csv")) %>%
+puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
   mutate(stimulus_expenses = as.numeric(stimulus_expenses),
          spend_credit = as.numeric(spend_credit),
          spend_savings = as.numeric(spend_savings),
@@ -68,7 +69,7 @@ puf_all_weeks <- puf_all_weeks %>%
   )
 
 # Set BRR survey design and specify replicate weights for single week numbers
-svy <- puf_all_weeks %>%
+svy_all <- puf_all_weeks %>%
   as_survey_rep(
     repweights = dplyr::matches("pweight[0-9]+"),
     weights = pweight,
@@ -77,66 +78,7 @@ svy <- puf_all_weeks %>%
   )
 
 
-# Helper function to dynamically generate crosswalk for rolling average calculations
-construct_overlap_intervals_df <- function(x) {
-  # INPUT:
-  #   x: integer
-
-  ### Construct week number vector
-  week_vec <- 1:x
-  # Get middle weeks and repeat each twice
-  middle_nums <- week_vec[c(-1, -length(week_vec))]
-  middle_nums <- rep(middle_nums, each = 2)
-  # Construct week_num vector where middle numbers are repeated twice
-  wk_nums <- c(week_vec[1], middle_nums, tail(week_vec, n = 1))
-  wk_nums <- paste0("wk", wk_nums)
-
-
-
-  ### Construct week_Average vector
-  interval_vec <- c()
-  while (x != 1) {
-    previous_num <- x - 1
-    interval <- paste0("wk", previous_num, "_", x)
-    interval_vec <- c(interval_vec, interval)
-
-    x <- x - 1
-  }
-  
-  #reverse order and repeat each twice
-  wk_int <- rev(interval_vec) %>% rep(each = 2)
-
-  ### Create dataframe
-  result <- tibble(
-    week_num = wk_nums,
-    week_int = wk_int
-  )
-
-
-
-  return(result)
-}
-
-
-week_crosswalk <- construct_overlap_intervals_df(CUR_WEEK)
-
-
-puf_all_weeks_rolling <- puf_all_weeks %>%
-  mutate_at(vars(starts_with("pweight")), funs(. / 2)) %>% # divide pweight and repweights by 2
-  right_join(week_crosswalk, by = "week_num") %>% # create week range column
-  rename("week_pt" = "week_num", "week_num" = "week_int")
-
-# Set BRR survey design and specify replicate weights for rolling averages
-svy_rolling <- puf_all_weeks_rolling %>%
-  as_survey_rep(
-    repweights = dplyr::matches("pweight[0-9]+"),
-    weights = pweight,
-    type = "BRR",
-    mse = TRUE
-  )
-
-
-get_se_diff <- function(..., svy = svy_rolling) {
+get_se_diff <- function(..., svy = svy_all) {
   # Function to calculate all means/SEs and mean/SEs of the difference between
   # racial group mean and all other racial group mean for a given geography/race/
   # metric/week combinations (except US, which is handled separately)
@@ -281,7 +223,7 @@ get_se_diff <- function(..., svy = svy_rolling) {
   return(result)
 }
 
-generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_rolling) {
+generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_all) {
   # Wrapper function to calculate all means/SEs and mean/SEs of the difference between
   # racial group mean and all other racial group mean for all geography/race/
   # metric/week combinations (except US, which is handled separately)
@@ -340,7 +282,7 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_roll
   return(full_combo_appended)
 }
 
-get_se_diff_us <- function(..., svy = svy_rolling) {
+get_se_diff_us <- function(..., svy = svy_all) {
   # Function to calculate all means/SEs and mean/SEs of the difference between
   # racial group mean and all other racial group mean for a given race/
   # metric/week combination for the US
@@ -400,7 +342,7 @@ get_se_diff_us <- function(..., svy = svy_rolling) {
   return(result)
 }
 
-generate_se_us <- function(metrics, race_indicators, svy = svy_rolling) {
+generate_se_us <- function(metrics, race_indicators, svy = svy_all) {
   # Wrapper function to calculate all means/SEs and mean/SEs of the difference between
   # racial group mean and all other racial group mean for all race/metric/week
   # combinations for the united states
@@ -450,16 +392,22 @@ metrics <- c(
   "expect_inc_loss",
   "rent_not_conf",
   "mortgage_not_conf",
-  "rent_not_paid",
-  "mortgage_not_paid",
   "food_insufficient",
-  "classes_cancelled",
   "depression_anxiety_signs",
-  "stimulus_expenses", 
   "spend_credit", 
   "spend_ui", 
   "spend_stimulus", 
-  "spend_savings")
+  "spend_savings",
+  "spend_snap",
+  "rent_caughtup",
+  "mortgage_caughtup",
+  "eviction_risk",
+  "foreclosure_risk",
+  "telework",
+  "mentalhealth_unmet",
+  "learning_fewer",
+  "expense_dif"
+  )
 race_indicators <- c("black", "asian", "hispanic", "white", "other", "total")
 
 # Update: ran on c5.4xlarge instance and took 3 hours
@@ -509,13 +457,13 @@ format_feature_total <- function(data, geo) {
 }
 
 # calculate US-wide means for each metric/week
-us_rolling_total <- map_df(metrics, calculate_se_us_total, svy = svy_rolling)
-write.csv(us_rolling_total, here("data/intermediate-data", str_glue("us_rolling_total_se_to_week{CUR_WEEK}.csv")))
+us_total <- map_df(metrics, calculate_se_us_total, svy = svy_all)
+write.csv(us_total, here("data/intermediate-data", str_glue("us_total_se_to_week{CUR_WEEK}.csv")))
 
-# Write out svy_roling object as an RDS object for use in QC scipts
-saveRDS(svy_rolling, file = "data/intermediate-data/svy_rolling.rds")
+# Write out svy object as an RDS object for use in QC scipts
+saveRDS(svy_all, file = "data/intermediate-data/svy.rds")
 
-us_total_rolling_out <- format_feature_total(us_rolling_total, "national")
+us_total_out <- format_feature_total(us_total, "national")
 
 all_diff_ses_out <- all_diff_ses %>%
   mutate(
@@ -544,28 +492,17 @@ us_diff_ses_out <- us_diff_ses %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
 
-rolling_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_rolling_out)
+data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out)
 
 week_crosswalk <- tibble::tribble(
   ~week_num, ~date_int,
-  "wk1_2", paste("4/23\u2013", "5/12", sep = ""),
-  "wk2_3", paste("5/7\u2013", "5/19", sep = ""),
-  "wk3_4", paste("5/14\u2013", "5/26", sep = ""),
-  "wk4_5", paste("5/21\u2013", "6/2", sep = ""),
-  "wk5_6", paste("5/28\u2013", "6/9", sep = ""),
-  "wk6_7", paste("6/4\u2013", "6/16", sep = ""),
-  "wk7_8", paste("6/11\u2013", "6/23", sep = ""),
-  "wk8_9", paste("6/18\u2013", "6/30", sep = ""),
-  "wk9_10", paste("6/25\u2013", "7/7", sep = ""),
-  "wk10_11", paste("7/2\u2013", "7/14", sep = ""),
-  "wk11_12", paste("7/9\u2013", "7/21", sep = "")
+  "wk13", paste("8/19\u2013", "31", sep = "")
   
 )
 
-data_out <- left_join(rolling_all, week_crosswalk, by = "week_num") %>%
+data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
   arrange(metric, race_var, geography,
           factor(week_num, 
-                 levels = c("wk1_2", "wk2_3", "wk3_4", "wk4_5", "wk5_6", "wk6_7", "wk7_8", 
-                            "wk8_9", "wk9_10", "wk10_11", "wk11_12")))
+                 levels = c("wk13")))
 
-write_csv(data_out, here("data/final-data", "rolling_all_to_current_week.csv"))
+write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
