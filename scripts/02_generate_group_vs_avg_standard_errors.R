@@ -14,6 +14,39 @@ library(fastDummies)
 # -done- update vars to reflect new list
 # - confirm non-rolling week_num var/structure
 
+metrics <- c(
+  "uninsured",
+  "insured_public",
+  "inc_loss",
+  "expect_inc_loss",
+  "rent_not_conf",
+  "mortgage_not_conf",
+  "food_insufficient",
+  "depression_anxiety_signs",
+  "spend_credit", 
+  "spend_ui", 
+  "spend_stimulus", 
+  "spend_savings",
+  "spend_snap",
+  "rent_caughtup",
+  "mortgage_caughtup",
+  "eviction_risk",
+  "foreclosure_risk",
+  "telework",
+  "mentalhealth_unmet",
+  "learning_fewer",
+  "expense_dif"
+)
+
+other_cols <- c(
+  "cbsa_title",
+  "state",
+  "hisp_rrace",
+  "week_num"
+)
+
+all_cols <- c(metrics, other_cols)
+
 ##  Read in and clean data
 puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
   mutate(stimulus_expenses = as.numeric(stimulus_expenses),
@@ -28,7 +61,7 @@ CUR_WEEK <- puf_all_weeks %>%
   max()
 
 
-puf_all_weeks <- puf_all_weeks %>%
+puf_all_weeks2 <- puf_all_weeks %>%
   # For the uninsured variable, we filter out people over 65 from the denominator
   mutate(
     insured_public = case_when(
@@ -40,6 +73,7 @@ puf_all_weeks <- puf_all_weeks %>%
       TRUE ~ uninsured
     )
   ) %>%
+  select(starts_with("pweight"), all_cols) %>%
   # Create one hot encoding of cbsas and states for easy use with survey pkg
   fastDummies::dummy_cols("cbsa_title") %>%
   fastDummies::dummy_cols("state") %>%
@@ -69,7 +103,7 @@ puf_all_weeks <- puf_all_weeks %>%
   )
 
 # Set BRR survey design and specify replicate weights for single week numbers
-svy_all <- puf_all_weeks %>%
+svy_all <- puf_all_weeks2 %>%
   as_survey_rep(
     repweights = dplyr::matches("pweight[0-9]+"),
     weights = pweight,
@@ -267,9 +301,9 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_all)
   ) %>%
     left_join(geo_xwalk, by = "geo_col")
 
-  # for testing (as running on all combintaions takes up too much RAM)
-  # full_combo = full_combo %>% 
-  #   filter(week %in% c("wk10_11", "wk11_12"))
+   #for testing (as running on all combintaions takes up too much RAM)
+   full_combo = full_combo %>% 
+     filter(metric %in% c("telework"))
 
   # get mean and se for diff bw subgroup and (total population -subgroup)
   # Call the get_se_diff function on every row of full_combo
@@ -385,29 +419,6 @@ generate_se_us <- function(metrics, race_indicators, svy = svy_all) {
 }
 
 
-metrics <- c(
-  "uninsured",
-  "insured_public",
-  "inc_loss",
-  "expect_inc_loss",
-  "rent_not_conf",
-  "mortgage_not_conf",
-  "food_insufficient",
-  "depression_anxiety_signs",
-  "spend_credit", 
-  "spend_ui", 
-  "spend_stimulus", 
-  "spend_savings",
-  "spend_snap",
-  "rent_caughtup",
-  "mortgage_caughtup",
-  "eviction_risk",
-  "foreclosure_risk",
-  "telework",
-  "mentalhealth_unmet",
-  "learning_fewer",
-  "expense_dif"
-  )
 race_indicators <- c("black", "asian", "hispanic", "white", "other", "total")
 
 # Update: ran on c5.4xlarge instance and took 3 hours
