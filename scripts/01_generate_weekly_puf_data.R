@@ -201,7 +201,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       # Dummy var caught up on rent (1 = yes, 0 = no)
       rent_caughtup = case_when(
         # did not pay on time or payment deferred = 1
-        rentcur ==1 & tenure == 3 ~ 1,
+        rentcur == 1 & tenure == 3 ~ 1,
         # paid on time = 0
         rentcur == 2 & tenure == 3 ~ 0,
         TRUE ~ NA_real_
@@ -209,9 +209,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       # Dummy var for caught up on mortage (1 = yes, 0 = no)
       mortgage_caughtup = case_when(
         # slight or no confidnece or payment already deferred = 1
-        mortcur ==1 & tenure == 2 ~ 1,
+        mortcur == 1 & tenure == 2 ~ 1,
         # moderate or high confidence = 0
-        mortcur == 1 & tenure == 2 ~ 0,
+        mortcur == 2 & tenure == 2 ~ 0,
         TRUE ~ NA_real_
       ),
       # Dummy var for Food Insufficient households
@@ -302,7 +302,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       ),
       #dummy for unmet need for mental health services in last 4 weeks
       mentalhealth_unmet= case_when(mh_notget == 1 ~ 1,
-                                    mh_notget == 0 ~ 0,
+                                    mh_notget == 2 ~ 0,
                                     TRUE ~ NA_real_
       ),
       #dummy for eviction risk
