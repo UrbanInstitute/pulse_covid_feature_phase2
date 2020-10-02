@@ -302,8 +302,8 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_all)
     left_join(geo_xwalk, by = "geo_col")
 
    #for testing (as running on all combintaions takes up too much RAM)
-   full_combo = full_combo %>% 
-     filter(metric %in% c("telework"))
+   #full_combo = full_combo %>% 
+  #   filter(metric %in% c("telework"))
 
   # get mean and se for diff bw subgroup and (total population -subgroup)
   # Call the get_se_diff function on every row of full_combo
