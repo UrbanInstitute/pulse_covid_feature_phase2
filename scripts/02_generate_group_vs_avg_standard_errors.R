@@ -516,4 +516,7 @@ data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
           factor(week_num, 
                  levels = c("wk13")))
 
+# Create final-data directory if it doesn't exist
+dir.create("data/final-data", showWarnings = F)
+
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
