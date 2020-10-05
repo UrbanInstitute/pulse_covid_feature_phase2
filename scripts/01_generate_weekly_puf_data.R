@@ -9,12 +9,12 @@ library(httr)
 library(here)
 
 ###### Notes on Changes Needed #########
-# - add new vars
+# - done- add new vars
 # - check to confirm var names unchanged
 # - double check denominators where new options added (e.g. spend vars need to all add spndsrc8 >= 0 to denom)
-# - remove class_cancelled and stimulus_expenses
-# - update var names/definitions for rent_not_paid and mortgage_not_paid
-# - update data dictionary
+# - done- remove class_cancelled and stimulus_expenses
+# - done- update var names/definitions for rent_not_paid and mortgage_not_paid
+# - done- update data dictionary
 
 download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-data/public_use_files/") {
   # Function to download in Pulse Public Use File for a given week, and add:
@@ -85,7 +85,6 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
     select("CBSA Code", "CSA Title", "CBSA Title") %>%
     # There seem to be some duplicate entries, so we remove them
     distinct(.keep_all = TRUE)
-
 
   ### Read in PUF file and weights file
   puf_filepath <- str_glue("{output_filepath}pulse2020_puf_{week_num_padded}.csv")
@@ -199,20 +198,20 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         mortconf %in% c(3, 4) & tenure == 2 ~ 0,
         TRUE ~ NA_real_
       ),
-      # Dummy var for paid rent last month (1 = yes, 0 = no)
-      rent_not_paid = case_when(
+      # Dummy var caught up on rent (1 = yes, 0 = no)
+      rent_caughtup = case_when(
         # did not pay on time or payment deferred = 1
-        mortlmth %in% c(2, 3) & tenure == 3 ~ 1,
+        rentcur == 1 & tenure == 3 ~ 1,
         # paid on time = 0
-        mortlmth == 1 & tenure == 3 ~ 0,
+        rentcur == 2 & tenure == 3 ~ 0,
         TRUE ~ NA_real_
       ),
-      # Dummy var for paid mortgage last month (1 = yes, 0 = no)
-      mortgage_not_paid = case_when(
+      # Dummy var for caught up on mortage (1 = yes, 0 = no)
+      mortgage_caughtup = case_when(
         # slight or no confidnece or payment already deferred = 1
-        mortlmth %in% c(2, 3) & tenure == 2 ~ 1,
+        mortcur == 1 & tenure == 2 ~ 1,
         # moderate or high confidence = 0
-        mortlmth == 1 & tenure == 2 ~ 0,
+        mortcur == 2 & tenure == 2 ~ 0,
         TRUE ~ NA_real_
       ),
       # Dummy var for Food Insufficient households
@@ -221,28 +220,12 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         curfoodsuf %in% c(1, 2) ~ 0,
         TRUE ~ NA_real_
       ),
-      # Dummy var for classes cancelled in HH with children
-      classes_cancelled = case_when(
-        # Set 1 if respondent answered that class was cancelled
-        teach1 == 1 ~ 1,
-        # Set 0 if respondent answered atleast one of the child education questions
-        teach1 >= 0 | teach2 >= 0 | teach3 >= 0 | teach4 >= 0 | teach5 >= 0 ~ 0,
-        # Set NA otherwise
-        TRUE ~ NA_real_
-      ),
-      # Dummy variable for spending stimulus payment on expenses
-      # Note that universe is all persons born before 2002
-      stimulus_expenses = as.numeric(case_when(
-        eip == 1 ~ 1,
-        eip %in% c(2, 3) ~ 0,
-        TRUE ~ NA_real_
-      )),
       spend_credit = as.numeric(case_when(
         #set 1 if respondent answered they use credit cards or loans
         spndsrc2 == 1 ~ 1,
         # Set 0 if respondent answered atleast one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -251,7 +234,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc3 == 1 ~ 1,
         # Set 0 if respondent answered at least one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -260,7 +243,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc5 == 1 ~ 1,
         # Set 0 if respondent answered at least one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -269,7 +252,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc6 == 1 ~ 1,
         # Set 0 if respondent answered atleast one of the child education questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -304,6 +287,43 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         down == 3 ~ 2,
         down == 4 ~ 3,
         TRUE ~ NA_real_
+      ),
+      #YS PULSE 2 update- adding new vars
+      #difficulty paying household expenses in past 7 days
+      expense_dif= case_when(
+      expns_dif >= 3 ~ 1,
+      expns_dif %in% c(1, 2) ~ 0,
+      TRUE ~ NA_real_
+      ),
+      #dummy for telework
+      telework= case_when(tw_start == 1 ~ 1,
+                          tw_start %in% c(2, 3) ~ 0,
+                          TRUE ~ NA_real_
+      ),
+      #dummy for unmet need for mental health services in last 4 weeks
+      mentalhealth_unmet= case_when(mh_notget == 1 ~ 1,
+                                    mh_notget == 2 ~ 0,
+                                    TRUE ~ NA_real_
+      ),
+      #dummy for eviction risk
+      eviction_risk = case_when(evict %in% c(1, 2) ~ 1,
+                                evict %in% c(3, 4) ~ 0,
+                                TRUE ~ NA_real_
+      ),
+      #dummy for foreclosure risk
+      foreclosure_risk = case_when(forclose %in% c(1, 2) ~ 1,
+                                   forclose %in% c(3, 4) ~ 0,
+                                   TRUE ~ NA_real_
+      ),
+      #dummy for Proportion of adults with children in school who spend fewer 
+      #hours on learning activities in the past 7 days relative to before the pandemic
+      learning_fewer= case_when(tch_hrs %in% c(1, 2) ~ 1,
+                                tch_hrs >= 3 ~ 0,
+                                TRUE ~ NA_real_
+      ),
+      #SNAP spending
+      spend_snap = case_when(spndsrc8 == 1 ~ 1,
+      (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0 | spndsrc8 >= 0) ~ 0
       )
     ) %>%
     # Needed for rowwise sum calculations in anxiety_signs and depression_signs var
@@ -320,7 +340,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         sum(interest_score, down_score, na.rm = T) >= 3 ~ 1,
         is.na(interest_score) & is.na(down_score) ~ NA_real_,
         TRUE ~ 0
-      ),
+      )
     ) %>%
     ungroup() %>%
     mutate(
@@ -365,9 +385,9 @@ puf_all_weeks <- map_df(week_vec, download_and_clean_puf_data)
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
 
-write_csv(puf_all_weeks, str_glue("data/intermediate-data/pulse_puf_week_1_to_{CUR_WEEK}.csv"))
+write_csv(puf_all_weeks, str_glue("data/intermediate-data/pulse_puf2_week_13_to_{CUR_WEEK}.csv"))
 # Write out most recent CSV
-write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf_all_weeks.csv"))
+write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
 
 
 # Manually generate and write out data dictionary for appended columns
@@ -382,11 +402,9 @@ appended_column_data_dictionary <-
     "payment_not_conf", "Indicator variable for if a respondent has little or no confidence in paying rent/mortgage next month or has already deferred payment for next months rent/mortgage. Note this excludes people who oen their homes free and clear or occupy thier house without payment of rent. They are coded as 1 if mortconf is  1,2 or ; s 0 if mortconf is 3 or 4; and NA otherwise",
     "rent_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier rent next month or has already deferred. This is a limited to renters (ie tenure ==3)",
     "mortgage_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier mortgage next month or has already deferred. This is a limited to owners paying mortgage (ie tenure ==2)",
-    "rent_not_paid", "Indicator variable for if a respondent did not pay thier rent last month or deferred. This is a limited to renters (ie tenure ==3)",
-    "mortgage_not_paid", "Indicator variable for if a respondent did not pay thier mortgage last month or deferred. This is a limited to owners paying mortgage (ie tenure ==2)",
+    "rent_caughtup", "Indicator variable for if a respondent's household is currently caught up on rent. This is a limited to renters (ie tenure ==3)",
+    "mortgage_caughtup", "Indicator variable for if a respondent's household is currently caught up on mortage. This is a limited to owners paying mortgage (ie tenure ==2)",
     "food_insufficient", "Indicator variable for if a respondents household has sometimes or often had not enough to eat in the last 7 days. This is essentially a recoding of the curfoodsuff variable where 3 and 4 are coded as 1, 1 and 3 are coded as 0, and -88 and -99 are coded as NA",
-    "classes_cancelled", "Indicator variable for if a responent's child has had classes which are normally taught in person cancelled due to the coronavirus. Note this question was only asked to households with children enrolled in public or private school. This is essentially a recoding of the teach1 variable where 1 was coded as 1,  respondents who responded to atleast one of teach1, teach2, teach3, teach4 or teach5 were coded as 0, and NA otherwise",
-    "stimulus_expenses", "Indicator variable for if a respondent that received a stimulus payment used it mostly for expenses. Note that universe is all persons born before 2002.",
     "spend_savings", "Indicator variable for if a respondent reported using money from savings or selling assets in last 7 days to meet spending needs",
     "spend_credit", "Indicator variable for if a respondent reported using money from credit cards or loans in last 7 days to meet spending needs",
     "spend_ui", "Indicator variable for if a respondent reported using money from unemployment insurance (UI) benefit payments in last 7 days to meet spending needs",
@@ -398,15 +416,23 @@ appended_column_data_dictionary <-
     "anxiety_signs", "An indicator variable for if the respondent is showing signs of generalized anxiety disorder. This is coded as 1 if the sum of anxious_score and worry_score is >= 3. Respondents with missing responses to both questions are coded as NA and 0 otherwise",
     "depression_signs", "An indicator variable for if the respondent is showing signs of major depressive disroder. This is coded as 1 if the sum of down_score and interest_score is >= 3.  Respondents with missing responses to both questions are coded as NA and 0 otherwise",
     "depression_anxiety_signs", " An indicator variable if the respondent is showing either signs of major depressive disorder or generalized anxiety disorder. Respondents with missing responses to both anxiety_signs and depression_signs are coded as NA",
+    "expense_dif", "Indicator variable for if a respondent reported difficulty for their household to pay for usual household expense n the last 7 days ",
+    "telework", "Indicator for at least one adults in this household substitute some or all of their typical in-person work for telework because of the coronavirus pandemic",
+    "metalhealth_unmet", "Indicator for needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason",
+    "eviction_risk", "Indicator for the likelihood of the household will have to leave this home or apartment within the next two months because of eviction",
+    "foreclosure_risk", "Indicator for the likelihood of the household will have to leave this home within the next two months because of foreclosure",
+    "learning_fewer", "Indicator for the student(s) spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
+    "spend_snap", "Indicator for household members using SNAP to meet their spending needs in the past 7 days",
     "week_num", "The week number that the survey data is from",
     "state", "2 digit abbrevation of the state that respondents are from",
     "state_name", "The full name of the state that respondents are from",
     "csa_title", "The name of the larger Combined statistical area that the respondent is from. Note the Census only reports the Metropolitan Statistical Area (aks the CBSA)",
     "cbsa_title", "The full name of the Core based statistical area that the respondent is from"
+    
   )
 
 # Write out data dictionary
 write_csv(
   appended_column_data_dictionary,
-  "data/intermediate-data/pulse_puf_appended_columns_data_dictionary.csv"
+  "data/intermediate-data/pulse_puf2_appended_columns_data_dictionary.csv"
 )
