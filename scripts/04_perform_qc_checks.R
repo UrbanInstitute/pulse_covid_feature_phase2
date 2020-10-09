@@ -15,13 +15,13 @@ library(srvyr)
 ### ----------Read in cleaned data from disk -------------------------
 
 
-rolling_all <- read_csv(here("data/final-data", "rolling_all_to_current_week.csv"))
+data_all <- read_csv(here("data/final-data", "phase2_all_to_current_week.csv"))
 
 all_diff_ses <- read_csv(here("data/intermediate-data", "all_diff_ses.csv"))
 
 us_diff_ses = read_csv(here("data/intermediate-data", "us_diff_ses.csv"))
 
-svy_rolling <- readRDS(here("data/intermediate-data", "svy_rolling.rds"))
+svy_obj <- readRDS(here("data/intermediate-data", "svy.rds"))
 
 
 
@@ -1321,12 +1321,12 @@ week_crosswalk <- construct_overlap_intervals_df(CUR_WEEK)
 #### ----Define and run tests------
 
 # Declare lists of states, metros and metrics for randomized testing of a subset
-all_states <- svy_rolling %>%
+all_states <- svy_obj %>%
   select(state, cbsa_title) %>%
   pull(state) %>%
   unique() %>%
   na.omit()
-all_metros <- svy_rolling %>%
+all_metros <- svy_obj %>%
   select(state, cbsa_title) %>%
   pull(cbsa_title) %>%
   unique() %>%
@@ -1372,7 +1372,7 @@ check_food_insuff_numbers <- function(tables = "food2b", point_df = point_all, w
     rename(week_num = week_int)
 
   # Join to our data
-  data_comparisons_by_race <- rolling_all %>%
+  data_comparisons_by_race <- data_all %>%
     filter(metric == "food_insufficient") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
@@ -1406,7 +1406,7 @@ check_rent_not_paid_numbers <- function(tables = "housing1b", point_df = point_a
     rename(week_num = week_int)
   
   # Join to our data
-  data_comparisons_by_race <- rolling_all %>%
+  data_comparisons_by_race <- data_all %>%
     filter(metric == "rent_not_paid") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
@@ -1437,7 +1437,7 @@ check_income_numbers <- function(tables = "employ1", point_df = point_all, wknum
 
 
   # Join to our data
-  data_comparisons_by_race <- rolling_all %>%
+  data_comparisons_by_race <- data_all %>%
     filter(metric == "inc_loss" | metric == "expect_inc_loss") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
@@ -1471,7 +1471,7 @@ check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = poi
     filter(week_num %in% c("wk7_8", "wk8_9", "wk9_10", "wk10_11", "wk11_12"))
   
   # Join to our data
-  data_comparisons_by_race <- rolling_all %>%
+  data_comparisons_by_race <- data_all %>%
     filter(metric == "stimulus_expenses") %>%
     filter(week_num %in% c("wk7_8", "wk8_9", "wk9_10", "wk10_11", "wk11_12")) %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
@@ -1496,7 +1496,7 @@ check_stimulus_expenses_numbers()
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
 # Check Standard Errors for black inc_loss in wk1_2 in Atlanta
 
-check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_rolling) {
+check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_obj) {
   sd_calcs <- se_df %>%
     filter(
       week == week_int,
@@ -1591,12 +1591,12 @@ compute_replicate_diff <- function(mean_obj1, mean_obj2) {
   return(c(mean = theta_hat, se = se_diff))
 }
 
-test_against_manual <- function(svy = svy_rolling, data = all_diff_ses, metric_name, wk_num, race_name,
+test_against_manual <- function(svy = svy_obj, data = all_diff_ses, metric_name, wk_num, race_name,
                                 geo_name, geo_col) {
   # Function to test means, SEs and significance from data versus manually
   # calcaulted mean, SEs and significance values from svy. Us
   # INPUT:
-  #   svy: Should be = svy_rolling, aka the raw survey dataset
+  #   svy: Should be = svy_obj, aka the raw survey dataset
   #    where SE/mean calculations will be done manually
   #   data: SHould be = all_diff_ses, aka the full SE file created at
   #     end of script 2
@@ -1672,7 +1672,7 @@ test_against_manual <- function(svy = svy_rolling, data = all_diff_ses, metric_n
   return(comparison_groups_df)
 }
 
-test_against_manual_us <- function(svy = svy_rolling, data = us_diff_ses, metric_name, wk_num, race_name) {
+test_against_manual_us <- function(svy = svy_obj, data = us_diff_ses, metric_name, wk_num, race_name) {
   # function to test against manual calculations for whole US
 
   metric_formula <- as.formula(paste0("~", metric_name))
