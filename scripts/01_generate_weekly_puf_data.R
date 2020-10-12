@@ -392,28 +392,54 @@ calculate_response_rate_metrics <- function(df_clean) {
     "expense_dif"
   )
   
+  elig_pct <- df_clean %>%
+    mutate(elig_classes_cancelled = case_when(enroll1 == 1 ~ 1, 
+                                              enroll2 == 1 | enroll3 == 1 ~ 0,
+                                              T ~ NA_real_),
+           elig_rent = case_when(tenure == 3 ~ 1, 
+                                 tenure > 0 ~ 0,
+                                 T ~ NA_real_),
+           elig_mortgage= case_when(tenure == 2 ~ 1, 
+                                    tenure > 0 ~ 0,
+                                    T ~ NA_real_),
+           elig_evict = case_when(tenure == 3 & rentcur == 2~ 1, 
+                                  tenure > 0 & rentcur > 0~ 0,
+                                  T ~ NA_real_),
+           elig_foreclose = case_when(tenure == 2 & mortcur == 2~ 1, 
+                                  tenure > 0 & mortcur > 0~ 0,
+                                  T ~ NA_real_)) %>%
+    summarise(across(starts_with("elig"), ~mean(.x, na.rm = TRUE)))
+  
   answered_df <- df_clean %>% 
-    mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
-           answered_learning_fewer = case_when((enroll1 == 1) & (tch_hrs > 0) ~ 1, 
+    mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}")) %>%
+    rowwise() %>%
+    mutate(answered_learning_fewer = case_when((enroll1 == 1) & (tch_hrs > 0) ~ 1, 
                                                (enroll1 == 1) & (tch_hrs < 0) ~ 0,
+                                               runif(1) < elig_pct$elig_classes_cancelled ~ 0,
                                                T ~ NA_real_),
            answered_rent_not_conf = case_when((tenure == 3) & (mortconf > 0) ~ 1, 
                                               (tenure == 3) & (mortconf > 0) ~ 0,
+                                              runif(1) < elig_pct$elig_rent  ~ 0,
                                               T ~ NA_real_),
            answered_mortgage_not_conf = case_when((tenure == 2) & (mortconf > 0) ~ 1, 
                                                   (tenure == 2) & (mortconf < 0) ~ 0,
+                                                  runif(1) < elig_pct$elig_mortgage  ~ 0,
                                                   T ~ NA_real_),
            answered_rent_caughtup = case_when((tenure == 3) & (rentcur > 0) ~ 1,
                                               (tenure == 3) & (rentcur < 0) ~ 0,
+                                              runif(1) < elig_pct$elig_rent  ~ 0,
                                               T ~ NA_real_),
            answered_mortgage_caughtup = case_when((tenure == 2) & (mortcur > 0) ~ 1,
                                                   (tenure == 2) & (mortcur < 0) ~ 0,
+                                                  runif(1) < elig_pct$elig_mortgage  ~ 0,
                                                   T ~ NA_real_),
            answered_evction_risk = case_when((tenure == 3) & (rentcur == 2) & (evict > 0) ~ 1,
                                              (tenure == 3) & (rentcur == 2) & (evict < 0) ~ 0,
+                                             runif(1) < elig_pct$elig_evict  ~ 0,
                                              T ~ NA_real_),
            answered_forclosure_risk = case_when((tenure == 2) & (mortcur == 2) & (forclose > 0) ~ 1,
                                                 (tenure == 2) & (mortcur == 2) & (forclose < 0) ~ 0,
+                                                runif(1) < elig_pct$elig_foreclose  ~ 0,
                                                 T ~ NA_real_))
   
   prop_resp_by_race <- answered_df %>%
@@ -437,8 +463,29 @@ calculate_response_rate_metrics <- function(df_clean) {
   rr_out <- rbind(rr_by_race, rr_total) %>%
     left_join(prop_resp_by_race, by = c("hisp_rrace", "week_num"), suffix = c("_rr", "_prop"))
   
+  job_loss_non_answer_race <- answered_df %>%
+    filter(!is.na(inc_loss)) %>%
+    select(week_num, hisp_rrace, inc_loss, starts_with("answered")) %>%
+    pivot_longer(!c("hisp_rrace", "week_num", "inc_loss"), names_to = "metric", values_to = "answered") %>%
+    filter(!is.na(answered)) %>%
+    group_by(week_num, metric, hisp_rrace, answered) %>%
+    summarise(inc_loss_pct = mean(inc_loss, na.rm = TRUE)) %>%
+    pivot_wider(names_from = metric, values_from = inc_loss_pct)
+  
+  job_loss_non_answer_all <- answered_df %>%
+    filter(!is.na(inc_loss)) %>%
+    select(week_num, inc_loss, starts_with("answered")) %>%
+    pivot_longer(!c("week_num", "inc_loss"), names_to = "metric", values_to = "answered") %>%
+    filter(!is.na(answered)) %>%
+    group_by(week_num, metric, answered) %>%
+    summarise(inc_loss_pct = mean(inc_loss, na.rm = TRUE)) %>%
+    mutate(hisp_rrace = "Total") %>%
+    pivot_wider(names_from = metric, values_from = inc_loss_pct)
+  
+  job_loss_out <- rbind(job_loss_non_answer_race, job_loss_non_answer_all)
+  
 
-  return(rr_out)
+  return(list(rr_out, job_loss_out))
   
 }
 
@@ -451,7 +498,9 @@ week_vec <- c(13:CUR_WEEK)
 # week_num that differentiates microdata from each week.
 
 puf_all_weeks <- map_df(week_vec, download_and_clean_puf_data)
-rr_metrics <- calculate_response_rate_metrics(puf_all_weeks)
+metric_list <- calculate_response_rate_metrics(puf_all_weeks)
+rr_out <- metric_list[[1]]
+job_loss_out <- metric_list[[2]]
 
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
@@ -460,7 +509,8 @@ write_csv(puf_all_weeks, str_glue("data/intermediate-data/pulse_puf2_week_13_to_
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
 
-write_csv(rr_metrics, here("data/intermediate-data", "pulse_rr_metrics_all_weeks.csv"))
+write_csv(rr_out, here("data/intermediate-data", "pulse2_rr_metrics_race_all.csv"))
+write_csv(job_loss_out, here("data/intermediate-data", "pulse2_rr_metrics_job_loss_all.csv"))
 
 
 # Manually generate and write out data dictionary for appended columns
