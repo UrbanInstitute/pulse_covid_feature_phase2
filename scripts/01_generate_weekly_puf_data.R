@@ -411,7 +411,8 @@ calculate_response_rate_metrics <- function(df_clean) {
     summarise(across(starts_with("elig"), ~mean(.x, na.rm = TRUE)))
   
   answered_df <- df_clean %>% 
-    mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}")) %>%
+    mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
+           answered_tenure = if_else(tenure > 0, 1, 0)) %>%
     rowwise() %>%
     mutate(answered_learning_fewer = case_when((enroll1 == 1) & (tch_hrs > 0) ~ 1, 
                                                (enroll1 == 1) & (tch_hrs < 0) ~ 0,
