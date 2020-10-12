@@ -49,8 +49,7 @@ all_cols <- c(metrics, other_cols)
 
 ##  Read in and clean data
 puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
-  mutate(stimulus_expenses = as.numeric(stimulus_expenses),
-         spend_credit = as.numeric(spend_credit),
+  mutate(spend_credit = as.numeric(spend_credit),
          spend_savings = as.numeric(spend_savings),
          spend_stimulus = as.numeric(spend_stimulus),
          spend_ui = as.numeric(spend_ui))
