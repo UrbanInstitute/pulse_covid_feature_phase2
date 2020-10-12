@@ -16,68 +16,6 @@ library(here)
 # - done- update var names/definitions for rent_not_paid and mortgage_not_paid
 # - done- update data dictionary
 
-calculate_response_rate_metrics <- function(df_clean, week_num) {
-  metrics_no_elig <- c(
-    "hisp_rrace",
-    "uninsured",
-    "insured_public",
-    "inc_loss",
-    "expect_inc_loss",
-    "food_insufficient",
-    "depression_anxiety_signs",
-    "spend_credit", 
-    "spend_ui", 
-    "spend_stimulus", 
-    "spend_savings",
-    "spend_snap",
-    "telework",
-    "mentalhealth_unmet",
-    "expense_dif"
-  )
-  
-  answered_df <- df_clean %>% 
-    mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), names = "answered_{.col}"),
-           answered_learning_fewer = case_when((enroll1 == 1) & (tch_hrs > 0) ~ 1, 
-                                               (enroll1 == 1) & (tch_hrs < 0) ~ 0,
-                                               T ~ NA_real_),
-           answered_rent_not_conf = case_when((tenure == 3) & (mortconf > 0) ~ 1, 
-                                              (tenure == 3) & (mortconf > 0) ~ 0,
-                                              T ~ NA_real_),
-           answered_mortgage_not_conf = case_when((tenure == 2) & (mortconf > 0) ~ 1, 
-                                                  (tenure == 2) & (mortconf < 0) ~ 0,
-                                                  T ~ NA_real_),
-           answered_rent_caughtup = case_when((tenure == 3) & (rentcur > 0) ~ 1,
-                                              (tenure == 3) & (rentcur < 0) ~ 0,
-                                              T ~ NA_real_),
-           answered_mortgage_caughtup = case_when((tenure == 2) & (mortcur > 0) ~ 1,
-                                                  (tenure == 2) & (mortcur < 0) ~ 0,
-                                                  T ~ NA_real_),
-           answered_evction_risk = case_when((tenure == 3) & (rentcur == 2) & (evict > 0) ~ 1,
-                                             (tenure == 3) & (rentcur == 2) & (evict < 0) ~ 0,
-                                             T ~ NA_real_),
-           answered_forclosure_risk = case_when((tenure == 2) & (mortcur == 2) & (forclose > 0) ~ 1,
-                                                (tenure == 2) & (mortcur == 2) & (forclose < 0) ~ 0,
-                                                T ~ NA_real_))
-
-  prop_resp_by_race <- answered_df %>%
-      select(hisp_rrace, starts_with("answered")) %>%
-      pivot_longer(!hisp_rrace, names_to = "metric", values_to = "answered")
-      group_by(metric) %>%
-      summarise(answered/sum(answered))
-      
- num_resp_by_race <- df_clean %>%
-   group_by(hisp_rrace) %>%
-   summarise(count = n())
- 
- rr_by_race <- answered_df %>%
-   group_by(hisp_rrace) %>%
-   summarise(across(starts_with("answered"), ~sum(.x, na.rm = TRUE))) %>%
-   left_join(num_resp_by_race, by = "hisp_rrace") %>%
-   mutate(across(starts_with("answered")))
-   
-
-}
-
 download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-data/public_use_files/") {
   # Function to download in Pulse Public Use File for a given week, and add:
   #   1) cleaned Non Hispanic Race variable, (hisp_rrace)
@@ -432,10 +370,78 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   # Check that cleanded data has same number of rows as raw data
   assert("Cleaned df has same # of rows as raw data", nrow(df) == nrow(df_clean))
 
-  #calculate_response_rate_metrics(df_clean, week_num)
-
   return(df_clean)
 }
+
+calculate_response_rate_metrics <- function(df_clean) {
+  metrics_no_elig <- c(
+    "hisp_rrace",
+    "uninsured",
+    "insured_public",
+    "inc_loss",
+    "expect_inc_loss",
+    "food_insufficient",
+    "depression_anxiety_signs",
+    "spend_credit", 
+    "spend_ui", 
+    "spend_stimulus", 
+    "spend_savings",
+    "spend_snap",
+    "telework",
+    "mentalhealth_unmet",
+    "expense_dif"
+  )
+  
+  answered_df <- df_clean %>% 
+    mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
+           answered_learning_fewer = case_when((enroll1 == 1) & (tch_hrs > 0) ~ 1, 
+                                               (enroll1 == 1) & (tch_hrs < 0) ~ 0,
+                                               T ~ NA_real_),
+           answered_rent_not_conf = case_when((tenure == 3) & (mortconf > 0) ~ 1, 
+                                              (tenure == 3) & (mortconf > 0) ~ 0,
+                                              T ~ NA_real_),
+           answered_mortgage_not_conf = case_when((tenure == 2) & (mortconf > 0) ~ 1, 
+                                                  (tenure == 2) & (mortconf < 0) ~ 0,
+                                                  T ~ NA_real_),
+           answered_rent_caughtup = case_when((tenure == 3) & (rentcur > 0) ~ 1,
+                                              (tenure == 3) & (rentcur < 0) ~ 0,
+                                              T ~ NA_real_),
+           answered_mortgage_caughtup = case_when((tenure == 2) & (mortcur > 0) ~ 1,
+                                                  (tenure == 2) & (mortcur < 0) ~ 0,
+                                                  T ~ NA_real_),
+           answered_evction_risk = case_when((tenure == 3) & (rentcur == 2) & (evict > 0) ~ 1,
+                                             (tenure == 3) & (rentcur == 2) & (evict < 0) ~ 0,
+                                             T ~ NA_real_),
+           answered_forclosure_risk = case_when((tenure == 2) & (mortcur == 2) & (forclose > 0) ~ 1,
+                                                (tenure == 2) & (mortcur == 2) & (forclose < 0) ~ 0,
+                                                T ~ NA_real_))
+  
+  prop_resp_by_race <- answered_df %>%
+    select(week_num, hisp_rrace, starts_with("answered")) %>%
+    pivot_longer(!c("hisp_rrace", "week_num"), names_to = "metric", values_to = "answered") %>%
+    group_by(week_num, metric, hisp_rrace) %>%
+    summarise(across(starts_with("answered"), ~sum(.x, na.rm = TRUE))) %>%
+    mutate(across(starts_with("answered"), ~.x/sum(.x, na.rm =  TRUE))) %>%
+    pivot_wider(names_from = metric, values_from = answered)
+  
+  
+  rr_by_race <- answered_df %>%
+    group_by(week_num, hisp_rrace) %>%
+    summarise(across(starts_with("answered"), ~mean(.x, na.rm = TRUE)))
+  
+  rr_total <- answered_df %>%
+    group_by(week_num) %>%
+    summarise(across(starts_with("answered"), ~mean(.x, na.rm = TRUE))) %>%
+    mutate(hisp_rrace = "Total")
+  
+  rr_out <- rbind(rr_by_race, rr_total) %>%
+    left_join(prop_resp_by_race, by = c("hisp_rrace", "week_num"), suffix = c("_rr", "_prop"))
+  
+
+  return(rr_out)
+  
+}
+
 
 
 CUR_WEEK <- 14
@@ -445,6 +451,7 @@ week_vec <- c(13:CUR_WEEK)
 # week_num that differentiates microdata from each week.
 
 puf_all_weeks <- map_df(week_vec, download_and_clean_puf_data)
+rr_metrics <- calculate_response_rate_metrics(puf_all_weeks)
 
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
@@ -452,6 +459,8 @@ dir.create("data/intermediate-data", showWarnings = F)
 write_csv(puf_all_weeks, str_glue("data/intermediate-data/pulse_puf2_week_13_to_{CUR_WEEK}.csv"))
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
+
+write_csv(rr_metrics, here("data/intermediate-data", "pulse_rr_metrics_all_weeks.csv"))
 
 
 # Manually generate and write out data dictionary for appended columns
