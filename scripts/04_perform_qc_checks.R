@@ -1363,9 +1363,8 @@ construct_overlap_intervals_df <- function(x) {
   ### Create dataframe
   result <- tibble(
     week_num = wk_nums,
-    week_int = wk_int
+    week_int = wk_nums
   )
-
 
 
   return(result)
