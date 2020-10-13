@@ -1132,7 +1132,63 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
     ) %>%
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
+}
+#YS: read in additional tables for quality check
 
+  readin_eviction_data <- function(sheet, filepath, skip = 5) {
+    # Specific cleaning function for table eviction.All the
+    # inputs to this fxn should be automatically selected by the wrapper function
+    # and should NOT have to be manually entered.
+    #
+    # INPUTS:
+    #   sheet (chr): Name of sheet to read in. This usually does NOT
+    #   have to be manually specified and is instead done automatically in
+    #   wrapper functions
+    #   filepath (chr): Local filepath to food insecurity table after its been downloaded
+    data <- read_excel(filepath,
+                       skip = skip,
+                       col_names = c(
+                         "variable",
+                         "total",
+                         "very_likely",
+                         "somewhat_likely",
+                         "not_very_likely",
+                         "not_likely",
+                         "did_not_report",
+                       ),
+                       col_types = c(
+                         "text",
+                         "numeric",
+                         "numeric",
+                         "numeric",
+                         "numeric",
+                         "numeric",
+                         "numeric"
+                       ),
+                       sheet = sheet
+    )
+    
+    data_by_race <- data %>%
+      # Assumes only rows with Hispanic in title will be race vars. True for now
+      filter(str_detect(
+        variable,
+        "Hispanic"
+      )) %>%
+      mutate_at(vars(-variable), as.numeric) %>%
+      # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
+      mutate_at(vars(-variable), replace_na, 0) %>%
+      mutate(
+        total_answered= total - did_not_report,
+        total_eviction_risk= very_likely + somewhat_likely,
+        percent_eviction_risk = (very_likely + somewhat_likely) / (total - did_not_report),
+        geography = sheet
+      ) %>%
+      # Removing Hispanic Origin and Race Header Row
+      slice(-1)
+  
+  
+  
+  
   # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
   # assert(data_by_race %>%
   #          mutate(total_comp = enough + enough_but_not_wanted +
@@ -1144,7 +1200,7 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
 
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
-    select(variable, geography, entrepreneurship_health) %>%
+    select(variable, geography, percent_eviction_risk) %>%
     # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
@@ -1182,7 +1238,8 @@ generate_table_data <- function(table_var, week_num) {
     "health2b", "readin_mental_health_depression_data", "depression",
     "health3", "readin_health_insurance_data", "health_insurance",
     "employ2", "readin_employment_data", "employment",
-    "stimulus1", "readin_stimulus_expenses_data", "stimulus_expenses"
+    "stimulus1", "readin_stimulus_expenses_data", "stimulus_expenses",
+    "housing3b", "readin_eviction_data","percent_eviction_risk"
   )
 
   # Get right cleaning function for the inputted table
@@ -1202,7 +1259,6 @@ generate_table_data <- function(table_var, week_num) {
       method = "libcurl"
     )
   }
-
 
 
 
@@ -1258,9 +1314,9 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 12
-week_num <- 1:CUR_WEEK
-week_num_spend <- 7:CUR_WEEK
+CUR_WEEK <- 14
+week_num <- 13:CUR_WEEK
+week_num_spend <- 13:CUR_WEEK
 
 
 test_within_0.001 <- function(vec1, vec2) {
@@ -1281,7 +1337,7 @@ construct_overlap_intervals_df <- function(x) {
   #   x: integer
 
   ### Construct week number vector
-  week_vec <- 1:x
+  week_vec <- 13:x
   # Get middle weeks and repeat each twice
   middle_nums <- week_vec[c(-1, -length(week_vec))]
   middle_nums <- rep(middle_nums, each = 2)
@@ -1348,7 +1404,8 @@ metrics <- c(
   "spend_credit", 
   "spend_ui", 
   "spend_stimulus", 
-  "spend_savings")
+  "spend_savings",
+  "percent_eviction_risk")
 
 
 ### Check that data from data tables match rolling average estimates we calculated
@@ -1486,12 +1543,46 @@ check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = poi
   assert("stimulus expenses numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
+check_eviction_risk_numbers <- function(tables = "housing3b", point_df = point_all, wknum = week_num) {
+  
+  # Generate pulse data table
+  pulse_data_tables <- tables %>%
+    map_df(generate_table_data, week_num = wknum) %>%
+    select(geography, percent_eviction_risk, week_num, race_var, total_eviction_risk, total_answered) %>%
+    pivot_longer(cols = percent_eviction_risk, names_to = "metric", values_to = "mean") %>%
+    right_join(week_crosswalk) %>%
+    group_by(week_int, geography, race_var) %>%
+    summarize(
+      sum_total_eviction_risk = sum(total_eviction_risk),
+      sum_total_answered = sum(total_answered),
+      metric = "stimulus_expenses",
+      mean = sum_stimulus_expenses / sum_total_answered
+    ) %>%
+    ungroup() %>%
+    rename(week_num = week_int) 
+
+  # Join to our data
+  data_comparisons_by_race <- data_all %>%
+    filter(metric == "percent_eviction_risk") %>%
+    left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
+    mutate(
+      mean.x = round(mean.x, 4),
+      mean.y = round(mean.y, 4)
+    )
+  
+  # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
+  ind_race_nums <- data_comparisons_by_race %>%
+    filter(!is.na(mean.y))
+  assert("eviction risk numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+}
+
 
 # TODO: More Checks
 check_food_insuff_numbers()
 check_income_numbers()
 check_rent_not_paid_numbers()
 check_stimulus_expenses_numbers()
+check_eviction_risk_numbers()
 
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
 # Check Standard Errors for black inc_loss in wk1_2 in Atlanta
