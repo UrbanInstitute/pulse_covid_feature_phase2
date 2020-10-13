@@ -1185,8 +1185,56 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
       ) %>%
       # Removing Hispanic Origin and Race Header Row
       slice(-1)
+  }
   
-  
+  readin_telework_data <- function(sheet, filepath, skip = 5) {
+      # Specific cleaning function for table health4. All the
+      # inputs to this fxn should be automatically selected by the wrapper function
+      # and should NOT have to be manually entered.
+      #
+      # INPUTS:
+      #   sheet (chr): Name of sheet to read in. This usually does NOT
+      #   have to be manually specified and is instead done automatically in
+      #   wrapper functions
+      #   filepath (chr): Local filepath to food insecurity table after its been downloaded
+      data <- read_excel(filepath,
+                         skip = skip,
+                         col_names = c(
+                           "variable",
+                           "total",
+                           "telework_start_yes",
+                           "telework_start_no",
+                           "no_change",
+                           "did_not_report",
+                         ),
+                         col_types = c(
+                           "text",
+                           "numeric",
+                           "numeric",
+                           "numeric",
+                           "numeric",
+                           "numeric"
+                         ),
+                         sheet = sheet
+      )
+      
+      data_by_race <- data %>%
+        # Assumes only rows with Hispanic in title will be race vars. True for now
+        filter(str_detect(
+          variable,
+          "Hispanic"
+        )) %>%
+        mutate_at(vars(-variable), as.numeric) %>%
+        # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
+        mutate_at(vars(-variable), replace_na, 0) %>%
+        mutate(
+          total_answered= total - did_not_report,
+          total_telework_start= telework_start_yes,
+          percent_telework_start = telework_start_yes/ (total - did_not_report),
+          geography = sheet
+        ) %>%
+        # Removing Hispanic Origin and Race Header Row
+        slice(-1)
   
   
   # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
@@ -1200,7 +1248,7 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
 
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
-    select(variable, geography, percent_eviction_risk) %>%
+    select(variable, geography, percent_telework_start) %>%
     # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
@@ -1239,7 +1287,8 @@ generate_table_data <- function(table_var, week_num) {
     "health3", "readin_health_insurance_data", "health_insurance",
     "employ2", "readin_employment_data", "employment",
     "stimulus1", "readin_stimulus_expenses_data", "stimulus_expenses",
-    "housing3b", "readin_eviction_data","percent_eviction_risk"
+    "housing3b", "readin_eviction_data","percent_eviction_risk",
+    "transport1", "readin_telework_data", "percent_tetlwork_start"
   )
 
   # Get right cleaning function for the inputted table
@@ -1404,7 +1453,9 @@ metrics <- c(
   "spend_ui", 
   "spend_stimulus", 
   "spend_savings",
-  "percent_eviction_risk")
+  "percent_eviction_risk",
+  "percent_telework_start"
+  )
 
 
 ### Check that data from data tables match rolling average estimates we calculated
@@ -1554,8 +1605,8 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = point_a
     summarize(
       sum_total_eviction_risk = sum(total_eviction_risk),
       sum_total_answered = sum(total_answered),
-      metric = "stimulus_expenses",
-      mean = sum_stimulus_expenses / sum_total_answered
+      metric = "percent_eviction_risk",
+      mean = sum_total_eviction_risk/ sum_total_answered
     ) %>%
     ungroup() %>%
     rename(week_num = week_int) 
@@ -1576,12 +1627,46 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = point_a
 }
 
 
+check_telework_start_numbers <- function(tables = "transport1", point_df = point_all, wknum = week_num) {
+  
+  # Generate pulse data table
+  pulse_data_tables <- tables %>%
+    map_df(generate_table_data, week_num = wknum) %>%
+    select(geography, percent_telework_start, week_num, race_var, total_telework_start, total_answered) %>%
+    pivot_longer(cols = percent_telework_start, names_to = "metric", values_to = "mean") %>%
+    right_join(week_crosswalk) %>%
+    group_by(week_int, geography, race_var) %>%
+    summarize(
+      sum_total_telework_start = sum(total_telework_start),
+      sum_total_answered = sum(total_answered),
+      metric = "percent_telework_start",
+      mean = sum_total_telework_start / sum_total_answered
+    ) %>%
+    ungroup() %>%
+    rename(week_num = week_int) 
+  
+  # Join to our data
+  data_comparisons_by_race <- data_all %>%
+    filter(metric == "percent_telework_start") %>%
+    left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
+    mutate(
+      mean.x = round(mean.x, 4),
+      mean.y = round(mean.y, 4)
+    )
+  
+  # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
+  ind_race_nums <- data_comparisons_by_race %>%
+    filter(!is.na(mean.y))
+  assert("telework numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+}
+
 # TODO: More Checks
 check_food_insuff_numbers()
 check_income_numbers()
 check_rent_not_paid_numbers()
 check_stimulus_expenses_numbers()
 check_eviction_risk_numbers()
+check_telework_start_numbers()
 
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
 # Check Standard Errors for black inc_loss in wk1_2 in Atlanta
