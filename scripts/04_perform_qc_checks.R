@@ -1205,7 +1205,7 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
                            "telework_start_yes",
                            "telework_start_no",
                            "no_change",
-                           "did_not_report",
+                           "did_not_report"
                          ),
                          col_types = c(
                            "text",
@@ -1248,7 +1248,7 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
 
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
-    select(variable, geography, percent_telework_start) %>%
+    select(variable, geography, percent_telework_start, total_telework_start, total_answered) %>%
     # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
@@ -1453,8 +1453,8 @@ metrics <- c(
   "spend_ui", 
   "spend_stimulus", 
   "spend_savings",
-  "percent_eviction_risk",
-  "percent_telework_start"
+  "eviction_risk", #AS: this needs to match the names of the metrics in data_all
+  "telework"
   )
 
 
@@ -1627,27 +1627,25 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = point_a
 }
 
 
-check_telework_start_numbers <- function(tables = "transport1", point_df = point_all, wknum = week_num) {
+check_telework_start_numbers <- function(tables = "transport1", point_df = data_all, wknum = week_num) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
     select(geography, percent_telework_start, week_num, race_var, total_telework_start, total_answered) %>%
     pivot_longer(cols = percent_telework_start, names_to = "metric", values_to = "mean") %>%
-    right_join(week_crosswalk) %>%
-    group_by(week_int, geography, race_var) %>%
+    group_by(week_num, geography, race_var) %>%
     summarize(
       sum_total_telework_start = sum(total_telework_start),
       sum_total_answered = sum(total_answered),
-      metric = "percent_telework_start",
+      metric = "telework",
       mean = sum_total_telework_start / sum_total_answered
     ) %>%
-    ungroup() %>%
-    rename(week_num = week_int) 
+    ungroup() 
   
   # Join to our data
-  data_comparisons_by_race <- data_all %>%
-    filter(metric == "percent_telework_start") %>%
+  data_comparisons_by_race <- point_df %>%
+    filter(metric == "telework") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
       mean.x = round(mean.x, 4),
@@ -1664,7 +1662,6 @@ check_telework_start_numbers <- function(tables = "transport1", point_df = point
 check_food_insuff_numbers()
 check_income_numbers()
 check_rent_not_paid_numbers()
-check_stimulus_expenses_numbers()
 check_eviction_risk_numbers()
 check_telework_start_numbers()
 
