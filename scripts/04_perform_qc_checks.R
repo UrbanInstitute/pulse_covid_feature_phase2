@@ -676,8 +676,8 @@ readin_conf_pay_rent_data <- function(sheet, filepath, skip = 5) {
   return(result)
 }
 
-readin_rent_not_paid_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table housing 2b, or confidence in paying rent this month.All the
+readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
+  # Specific cleaning function for table housing 1b, or Household currently caught up on rent payments.All the
   # inputs to this fxn should be automatically selected by the wrapper function
   # and should NOT have to be manually entered.
   #
@@ -685,7 +685,7 @@ readin_rent_not_paid_data <- function(sheet, filepath, skip = 5) {
   #   sheet (chr): Name of sheet to read in. This usually does NOT
   #   have to be manually specified and is instead done automatically in
   #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
+  #   filepath (chr): Local filepath to rent table after its been downloaded
   
   
   
@@ -697,12 +697,10 @@ readin_rent_not_paid_data <- function(sheet, filepath, skip = 5) {
                            "variable",
                            "total",
                            "occup_no_rent",
-                           "payment_yes",
-                           "payment_no",
-                           "payment_deferred",
-                           "did_not_respond_conf",
-                           "owner_occupied",
-                           "did_not_respond_tenure"
+                           "payment_caughtup_yes",
+                           "payment_caughtup_no",
+                           "did_not_report",
+                           "did_not_report_tenure"
                          ),
                          col_types = "text",
                          sheet = sheet
@@ -718,11 +716,10 @@ readin_rent_not_paid_data <- function(sheet, filepath, skip = 5) {
                            "variable",
                            "total",
                            "occup_no_rent",
-                           "payment_yes",
-                           "payment_no",
-                           "payment_deferred",
-                           "did_not_respond_conf",
-                           "did_not_respond_tenure"
+                           "payment_caughtup_yes",
+                           "payment_caughtup_no",
+                           "did_not_report",
+                           "did_not_report_tenure"
                          ),
                          col_types = "text",
                          sheet = sheet
@@ -742,9 +739,8 @@ readin_rent_not_paid_data <- function(sheet, filepath, skip = 5) {
     # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
     mutate_at(vars(-variable), replace_na, 0) %>%
     mutate(
-      perc_rent_not_paid = payment_no + payment_deferred / (total - occup_no_rent - did_not_respond_conf),
-      total_not_paid = payment_no + payment_deferred,
-      total_answered = total - occup_no_rent - did_not_respond_conf,
+      perc_rent_caughtup = payment_caughtup_yes / (total - occup_no_rent - did_not_report),
+      total_answered= total - occup_no_rent - did_not_report,
       geography = sheet
     ) %>%
     # Removing Hispanic Origin and Race Header Row
@@ -761,8 +757,7 @@ readin_rent_not_paid_data <- function(sheet, filepath, skip = 5) {
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(
-      variable, geography, perc_rent_not_paid, payment_no, payment_yes, payment_deferred,
-      total, did_not_respond_conf, did_not_respond_tenure, total_answered, total_not_paid
+      variable, geography, payment_caughtup_yes,total, occup_no_rent, did_not_report,perc_rent_caughtup
     ) %>%
     # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
@@ -1154,7 +1149,7 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
                          "somewhat_likely",
                          "not_very_likely",
                          "not_likely",
-                         "did_not_report",
+                         "did_not_report"
                        ),
                        col_types = c(
                          "text",
@@ -1281,14 +1276,14 @@ generate_table_data <- function(table_var, week_num) {
     "food3b", "readin_food_children_data", "food_insecurity_children",
     "housing2a", "readin_conf_pay_mortgage_data", "confidence_paying_mortgage",
     "housing2b", "readin_conf_pay_rent_data", "confidence_paying_rent",
-    "housing1b", "readin_rent_not_paid_data", "rent_not_paid",
+    "housing1b", "readin_rent_caughtup_data", "rent_caughtup",
     "health2a", "readin_mental_health_anxiety_data", "anxiety",
     "health2b", "readin_mental_health_depression_data", "depression",
     "health3", "readin_health_insurance_data", "health_insurance",
     "employ2", "readin_employment_data", "employment",
     "stimulus1", "readin_stimulus_expenses_data", "stimulus_expenses",
-    "housing3b", "readin_eviction_data","percent_eviction_risk",
-    "transport1", "readin_telework_data", "percent_tetlwork_start"
+    "housing3b", "readin_eviction_data","eviction_risk",
+    "transport1", "readin_telework_data", "telework"
   )
 
   # Get right cleaning function for the inputted table
@@ -1443,7 +1438,7 @@ metrics <- c(
   "expect_inc_loss",
   "rent_not_conf",
   "mortgage_not_conf",
-  "rent_not_paid",
+  "rent_caughtup",
   "mortgage_not_paid",
   "food_insufficient",
   "classes_cancelled",
@@ -1460,23 +1455,21 @@ metrics <- c(
 
 ### Check that data from data tables match rolling average estimates we calculated
 
-check_food_insuff_numbers <- function(tables = "food2b", point_df = point_all, wknum = week_num) {
+check_food_insuff_numbers <- function(tables = "food2b", point_df = data_all, wknum = week_num) {
 
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
     select(geography, percent_food_insecure, week_num, race_var, total_food_insecure, total_answered) %>%
     pivot_longer(cols = percent_food_insecure, names_to = "metric", values_to = "mean") %>%
-    right_join(week_crosswalk) %>%
-    group_by(week_int, geography, race_var) %>%
+    group_by(week_num, geography, race_var) %>%
     summarize(
       sum_food_insecure = sum(total_food_insecure),
       sum_total_answered = sum(total_answered),
       metric = "food_insufficient",
       mean = sum_food_insecure / sum_total_answered
     ) %>%
-    ungroup() %>%
-    rename(week_num = week_int)
+    ungroup() 
 
   # Join to our data
   data_comparisons_by_race <- data_all %>%
@@ -1494,27 +1487,26 @@ check_food_insuff_numbers <- function(tables = "food2b", point_df = point_all, w
 }
 
 
-check_rent_not_paid_numbers <- function(tables = "housing1b", point_df = point_all, wknum = week_num) {
+check_rent_caughtup_numbers <- function(tables = "housing1b", point_df = data_all, wknum = week_num) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
-    select(geography, perc_rent_not_paid, week_num, race_var, payment_no, total_answered, total_not_paid) %>%
-    pivot_longer(cols = perc_rent_not_paid, names_to = "metric", values_to = "mean") %>%
-    right_join(week_crosswalk) %>%
-    group_by(week_int, geography, race_var) %>%
+    select(geography, perc_rent_caughtup, week_num, race_var, payment_caughtup_yes,total_answered) %>%
+    pivot_longer(cols = perc_rent_caughtup, names_to = "metric", values_to = "mean") %>%
+    group_by(week_num, geography, race_var) %>%
     summarize(
-      sum_rent_not_paid = sum(total_not_paid),
+      sum_total= sum(total),
+      sum_rent_caughtup = sum(payment_caughtup_yes),
       sum_total_answered = sum(total_answered),
-      metric = "rent_not_paid",
-      mean = sum_rent_not_paid / sum_total_answered
+      metric = "rent_caughtup",
+      mean = sum_rent_caughtup / sum_total_answered
     ) %>%
-    ungroup() %>%
-    rename(week_num = week_int)
+    ungroup() 
   
   # Join to our data
   data_comparisons_by_race <- data_all %>%
-    filter(metric == "rent_not_paid") %>%
+    filter(metric == "rent_caughtup") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
       mean.x = round(mean.x, 4),
@@ -1524,9 +1516,10 @@ check_rent_not_paid_numbers <- function(tables = "housing1b", point_df = point_a
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
     filter(!is.na(mean.y))
-  assert("rent not paid race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+  assert("rent caught up numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
-check_income_numbers <- function(tables = "employ1", point_df = point_all, wknum = week_num) {
+
+check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum = week_num) {
 
   # Generate pulse data table
   pulse_data_tables <- tables %>%
@@ -1539,8 +1532,7 @@ check_income_numbers <- function(tables = "employ1", point_df = point_all, wknum
       expect_inc_loss = sum(income_loss_next_4_wks) / sum(total_answered_lose)
     ) %>%
     pivot_longer(cols = inc_loss:expect_inc_loss, names_to = "metric", values_to = "mean") %>%
-    ungroup() %>%
-    rename(week_num = week_int)
+    ungroup() 
 
 
   # Join to our data
@@ -1558,29 +1550,25 @@ check_income_numbers <- function(tables = "employ1", point_df = point_all, wknum
   assert("Income Loss and Expected Income Loss race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
-check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = point_all, wknum = week_num_spend) {
+check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = data_all, wknum = week_num_spend) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
     select(geography, perc_used_expenses, week_num, race_var, used_expenses, total_answered) %>%
     pivot_longer(cols = perc_used_expenses, names_to = "metric", values_to = "mean") %>%
-    right_join(week_crosswalk) %>%
-    group_by(week_int, geography, race_var) %>%
+    group_by(week_num, geography, race_var) %>%
     summarize(
       sum_stimulus_expenses = sum(used_expenses),
       sum_total_answered = sum(total_answered),
       metric = "stimulus_expenses",
       mean = sum_stimulus_expenses / sum_total_answered
     ) %>%
-    ungroup() %>%
-    rename(week_num = week_int) %>%
-    filter(week_num %in% c("wk7_8", "wk8_9", "wk9_10", "wk10_11", "wk11_12"))
+    ungroup() 
   
   # Join to our data
   data_comparisons_by_race <- data_all %>%
     filter(metric == "stimulus_expenses") %>%
-    filter(week_num %in% c("wk7_8", "wk8_9", "wk9_10", "wk10_11", "wk11_12")) %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
       mean.x = round(mean.x, 4),
@@ -1593,27 +1581,25 @@ check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = poi
   assert("stimulus expenses numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
-check_eviction_risk_numbers <- function(tables = "housing3b", point_df = point_all, wknum = week_num) {
+check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_all, wknum = week_num) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
     select(geography, percent_eviction_risk, week_num, race_var, total_eviction_risk, total_answered) %>%
     pivot_longer(cols = percent_eviction_risk, names_to = "metric", values_to = "mean") %>%
-    right_join(week_crosswalk) %>%
-    group_by(week_int, geography, race_var) %>%
+    group_by(week_num, geography, race_var) %>%
     summarize(
       sum_total_eviction_risk = sum(total_eviction_risk),
       sum_total_answered = sum(total_answered),
-      metric = "percent_eviction_risk",
+      metric = "eviction_risk",
       mean = sum_total_eviction_risk/ sum_total_answered
     ) %>%
-    ungroup() %>%
-    rename(week_num = week_int) 
+    ungroup() 
 
   # Join to our data
   data_comparisons_by_race <- data_all %>%
-    filter(metric == "percent_eviction_risk") %>%
+    filter(metric == "eviction_risk") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
       mean.x = round(mean.x, 4),
@@ -1661,9 +1647,9 @@ check_telework_start_numbers <- function(tables = "transport1", point_df = data_
 # TODO: More Checks
 check_food_insuff_numbers()
 check_income_numbers()
-check_rent_not_paid_numbers()
 check_eviction_risk_numbers()
 check_telework_start_numbers()
+check_rent_caughtup_numbers()
 
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
 # Check Standard Errors for black inc_loss in wk1_2 in Atlanta
@@ -1929,7 +1915,7 @@ random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
    wk_num = sample(c("wk10_11", "wk11_12"), size = 10, replace = TRUE),
-   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
+   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
  )
 
 se_manual_calc_test_us_results = random_test_list_us %>% pmap_df(test_against_manual_us)
