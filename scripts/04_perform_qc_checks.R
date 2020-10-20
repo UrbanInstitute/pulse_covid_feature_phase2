@@ -740,7 +740,7 @@ readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
     mutate_at(vars(-variable), replace_na, 0) %>%
     mutate(
       perc_rent_caughtup = payment_caughtup_yes / (total - occup_no_rent - did_not_report),
-      total_answered= total - occup_no_rent - did_not_report,
+      total_answered= (total - occup_no_rent - did_not_report),
       geography = sheet
     ) %>%
     # Removing Hispanic Origin and Race Header Row
@@ -757,7 +757,7 @@ readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(
-      variable, geography, payment_caughtup_yes,total, occup_no_rent, did_not_report,perc_rent_caughtup
+      variable, geography, payment_caughtup_yes, total, occup_no_rent, did_not_report,perc_rent_caughtup,total_answered
     ) %>%
     # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
@@ -1492,7 +1492,7 @@ check_rent_caughtup_numbers <- function(tables = "housing1b", point_df = data_al
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
-    select(geography, perc_rent_caughtup, week_num, race_var, payment_caughtup_yes,total_answered) %>%
+    select(geography, perc_rent_caughtup, week_num, race_var, total, payment_caughtup_yes,total_answered) %>%
     pivot_longer(cols = perc_rent_caughtup, names_to = "metric", values_to = "mean") %>%
     group_by(week_num, geography, race_var) %>%
     summarize(
@@ -1902,7 +1902,7 @@ test_against_manual_us <- function(svy = svy_obj, data = us_diff_ses, metric_nam
 random_test_list_manual <- tibble(
   metric_name = sample(metrics, 10, replace = TRUE),
   # replace with last two weeks
-  wk_num = sample(c("wk10_11", "wk11_12"), size = 10, replace = TRUE),
+  wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
   geo_name = c(sample(all_states, 7), sample(all_metros, 3)),
   geo_col = c(rep("state", 7), rep("cbsa_title", 3))
