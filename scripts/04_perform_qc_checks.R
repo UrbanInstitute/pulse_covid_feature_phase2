@@ -1526,7 +1526,7 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
     map_df(generate_table_data, week_num = wknum) %>%
     select(-perc_lost_income, -perc_lose_income, week_num, race_var, everything()) %>%
     right_join(week_crosswalk) %>%
-    group_by(week_int, geography, race_var) %>%
+    group_by(week_num, geography, race_var) %>%
     summarize(
       inc_loss = sum(income_loss_since_mar_13) / sum(total_answered_lost),
       expect_inc_loss = sum(income_loss_next_4_wks) / sum(total_answered_lose)
@@ -1550,7 +1550,7 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
   assert("Income Loss and Expected Income Loss race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
-check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = data_all, wknum = week_num_spend) {
+check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = data_all, wknum = week_num) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
