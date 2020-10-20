@@ -1724,7 +1724,7 @@ check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_s
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
   # replace with last two weeks 
-  week_int = sample(c("wk10_11", "wk11_12"), size = 10, replace = TRUE),
+  week_int = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics, 10, replace = TRUE)
@@ -1914,7 +1914,7 @@ se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_
 random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
-   wk_num = sample(c("wk10_11", "wk11_12"), size = 10, replace = TRUE),
+   wk_num = sample(c("wk13", "wk13"), size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
  )
 
