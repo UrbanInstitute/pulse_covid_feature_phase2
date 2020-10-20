@@ -1180,6 +1180,14 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
       ) %>%
       # Removing Hispanic Origin and Race Header Row
       slice(-1)
+    
+    wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
+    result <- data_by_race %>%
+      select(variable, geography, percent_eviction_risk, total_eviction_risk, total_answered) %>%
+      # MM: this assumes the week is single digit, and that the file name is standardized
+      mutate(week_num = wk_num)
+    return(result)
+    
   }
   
   readin_telework_data <- function(sheet, filepath, skip = 5) {
@@ -1268,17 +1276,12 @@ generate_table_data <- function(table_var, week_num) {
   # Need to add to this tribble as we add more tables
   fxn_table_xwalk <- tribble(
     ~table, ~cleaning_fxn, ~metric,
-    "educ3", "readin_tech_availability_data", "education_tech_availability",
-    "educ2", "readin_educ_affected_data", "education_classes_cancelled",
     "employ1", "readin_employ_loss_data", "employment_income_loss",
-    "health1", "readin_avoided_medical_care_data", "avoided_medical_care",
     "food2b", "readin_food_data", "food_insecurity",
-    "food3b", "readin_food_children_data", "food_insecurity_children",
     "housing2a", "readin_conf_pay_mortgage_data", "confidence_paying_mortgage",
     "housing2b", "readin_conf_pay_rent_data", "confidence_paying_rent",
     "housing1b", "readin_rent_caughtup_data", "rent_caughtup",
-    "health2a", "readin_mental_health_anxiety_data", "anxiety",
-    "health2b", "readin_mental_health_depression_data", "depression",
+    "health4", "readin_mental_health_anxiety_data", "anxiety_depression_signs",
     "health3", "readin_health_insurance_data", "health_insurance",
     "employ2", "readin_employment_data", "employment",
     "stimulus1", "readin_stimulus_expenses_data", "stimulus_expenses",
@@ -1390,24 +1393,27 @@ all_metros <- svy_obj %>%
   na.omit()
 
 metrics <- c(
-  "uninsured",
-  "insured_public",
-  "inc_loss",
+  "depression_anxiety_signs",
+  "eviction_risk",
   "expect_inc_loss",
-  "rent_not_conf",
+  "expense_dif",
+  "food_insufficient",
+  "foreclosure_risk",
+  "inc_loss",
+  "insured_public",
+  "learning_fewer",
+  "mentalhealth_unmet",
+  "mortgage_caughtup",
   "mortgage_not_conf",
   "rent_caughtup",
-  "mortgage_not_paid",
-  "food_insufficient",
-  "classes_cancelled",
-  "depression_anxiety_signs",
-  "stimulus_expenses", 
-  "spend_credit", 
-  "spend_ui", 
-  "spend_stimulus", 
+  "rent_not_conf",
+  "spend_credit",
   "spend_savings",
-  "eviction_risk", #AS: this needs to match the names of the metrics in data_all
-  "telework"
+  "spend_snap",
+  "spend_stimulus",
+  "spend_ui",
+  "telework",
+  "uninsured"
   )
 
 
@@ -1513,7 +1519,6 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_al
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
-    select(geography, percent_eviction_risk, week_num, race_var, total_eviction_risk, total_answered) %>%
     pivot_longer(cols = percent_eviction_risk, names_to = "metric", values_to = "mean") %>%
     group_by(week_num, geography, race_var) %>%
     summarize(
@@ -1654,7 +1659,7 @@ random_test_list <- tibble(
   wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
-  metr = sample(metrics, 10, replace = TRUE)
+  metr = sample(metrics,10, replace = TRUE)
 )
 
 se_glm_test_results <- random_test_list %>% pmap_lgl(check_glm_se_match)
