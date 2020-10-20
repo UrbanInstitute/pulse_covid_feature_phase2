@@ -1375,48 +1375,6 @@ test_within_0.001 <- function(vec1, vec2) {
 # vectorize above function
 test_within_0.001_v <- Vectorize(test_within_0.001)
 
-# Construct week overlap intervals
-construct_overlap_intervals_df <- function(x) {
-  # INPUT:
-  #   x: integer
-
-  ### Construct week number vector
-  week_vec <- 13:x
-  # Get middle weeks and repeat each twice
-  middle_nums <- week_vec[c(-1, -length(week_vec))]
-  middle_nums <- rep(middle_nums, each = 2)
-  # Construct week_num vector where middle numbers are repeated twice
-  wk_nums <- c(week_vec[1], middle_nums, tail(week_vec, n = 1))
-  wk_nums <- paste0("wk", wk_nums)
-
-
-
-  ### Construct week_Average vector
-  interval_vec <- c()
-  while (x != 1) {
-    previous_num <- x - 1
-    interval <- paste0("wk", previous_num, "_", x)
-    interval_vec <- c(interval_vec, interval)
-
-    x <- x - 1
-  }
-  
-  #reverse order and repeat each twice
-  wk_int <- rev(interval_vec) %>% rep(each = 2)
-
-  ### Create dataframe
-  result <- tibble(
-    week_num = wk_nums,
-    week_int = wk_nums
-  )
-
-
-  return(result)
-}
-
-week_crosswalk <- construct_overlap_intervals_df(CUR_WEEK)
-
-
 #### ----Define and run tests------
 
 # Declare lists of states, metros and metrics for randomized testing of a subset
@@ -1550,37 +1508,6 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
   assert("Income Loss and Expected Income Loss race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
-check_stimulus_expenses_numbers <- function(tables = "stimulus1", point_df = data_all, wknum = week_num) {
-  
-  # Generate pulse data table
-  pulse_data_tables <- tables %>%
-    map_df(generate_table_data, week_num = wknum) %>%
-    select(geography, perc_used_expenses, week_num, race_var, used_expenses, total_answered) %>%
-    pivot_longer(cols = perc_used_expenses, names_to = "metric", values_to = "mean") %>%
-    group_by(week_num, geography, race_var) %>%
-    summarize(
-      sum_stimulus_expenses = sum(used_expenses),
-      sum_total_answered = sum(total_answered),
-      metric = "stimulus_expenses",
-      mean = sum_stimulus_expenses / sum_total_answered
-    ) %>%
-    ungroup() 
-  
-  # Join to our data
-  data_comparisons_by_race <- data_all %>%
-    filter(metric == "stimulus_expenses") %>%
-    left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
-    mutate(
-      mean.x = round(mean.x, 4),
-      mean.y = round(mean.y, 4)
-    )
-  
-  # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
-  ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
-  assert("stimulus expenses numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
-}
-
 check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_all, wknum = week_num) {
   
   # Generate pulse data table
@@ -1654,10 +1581,10 @@ check_rent_caughtup_numbers()
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
 # Check Standard Errors for black inc_loss in wk1_2 in Atlanta
 
-check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_obj) {
+check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_obj) {
   sd_calcs <- se_df %>%
     filter(
-      week == week_int,
+      week == wk_num,
       geography == geo,
       race_indicator == race_ind,
       metric == metr
@@ -1677,7 +1604,7 @@ check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_s
     # if length geo = 2, then this is a state so filter to that state
     glm_calcs <- svyglm(glm_formula,
       svy %>%
-        filter(week_num == week_int) %>%
+        filter(week_num == wk_num) %>%
         filter(state == geo),
       na.action = "na.omit"
     ) %>%
@@ -1697,7 +1624,7 @@ check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_s
     # else its a metro, so filter to that metro
     glm_calcs <- svyglm(glm_formula,
       svy %>%
-        filter(week_num == week_int) %>%
+        filter(week_num == wk_num) %>%
         filter(cbsa_title == geo),
       na.action = "na.omit"
     ) %>%
@@ -1724,7 +1651,7 @@ check_glm_se_match <- function(week_int, geo, race_ind, metr, se_df = all_diff_s
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
   # replace with last two weeks 
-  week_int = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
+  wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics, 10, replace = TRUE)
@@ -1914,7 +1841,7 @@ se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_
 random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
-   wk_num = sample(c("wk13", "wk13"), size = 10, replace = TRUE),
+   wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
  )
 
