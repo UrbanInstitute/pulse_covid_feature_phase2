@@ -732,7 +732,8 @@ generate_table_data <- function(table_var, week_num) {
     "housing2a", "readin_conf_pay_mortgage_data", "confidence_paying_mortgage",
     "housing2b", "readin_conf_pay_rent_data", "confidence_paying_rent",
     "housing1b", "readin_rent_caughtup_data", "rent_caughtup",
-    "health4", "readin_mental_health_anxiety_data", "anxiety_depression_signs",
+    "health2a", "readin_mental_health_anxiety_data", "anxiety",
+    "health2b", "readin_mental_health_depression_data", "depression",
     "health3", "readin_health_insurance_data", "health_insurance",
     "housing3b", "readin_eviction_data","eviction_risk",
     "transport1", "readin_telework_data", "telework"
