@@ -19,7 +19,7 @@ data_all <- read_csv(here("data/final-data", "phase2_all_to_current_week.csv"))
 
 all_diff_ses <- read_csv(here("data/intermediate-data", "all_diff_ses.csv"))
 
-us_diff_ses = read_csv(here("data/intermediate-data", "us_diff_ses.csv"))
+us_diff_ses <- read_csv(here("data/intermediate-data", "us_diff_ses.csv"))
 
 svy_obj <- readRDS(here("data/intermediate-data", "svy.rds"))
 
@@ -31,171 +31,6 @@ svy_obj <- readRDS(here("data/intermediate-data", "svy.rds"))
 # Need to define a seperate data readin function for every table
 # of interest from the Census Pulse Survey, then add it to the tribble in
 # `generate_table_data`.
-
-readin_tech_availability_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table educ3, or computer and Internet availability. All the
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
-  #
-  # INPUTS:
-  #   sheet (chr): Name of sheet to read in. This usually does NOT
-  #   have to be manually specified and is instead done automatically in
-  #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-  data <- read_excel(filepath,
-    skip = skip,
-    col_names = c(
-      "variable",
-      "total",
-      "device_always_available",
-      "device_usually_available",
-      "device_sometimes_available",
-      "device_rarely_available",
-      "device_never_available",
-      "device_did_not_respond",
-      "internet_always_available",
-      "internet_usually_available",
-      "internet_sometimes_available",
-      "internet_rarely_available",
-      "internet_never_available",
-      "internet_did_not_respond"
-    ),
-    col_types = c(
-      "text",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric"
-    ),
-    sheet = sheet
-  )
-
-  data_by_race <- data %>%
-    # Assumes only rows with Hispanic in title will be race vars. True for now
-    filter(str_detect(
-      variable,
-      "Hispanic"
-    )) %>%
-    mutate_at(vars(-variable), as.numeric) %>%
-    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-    mutate_at(vars(-variable), replace_na, 0) %>%
-    mutate(
-      device_total_answered = total - device_did_not_respond,
-      internet_total_answered = total - internet_did_not_respond,
-      # NOTE: We only count rarely and never as unavailable
-      perc_dev_unavail = (device_rarely_available + device_never_available) / (total - device_did_not_respond),
-      perc_int_unavail = (internet_rarely_available + internet_never_available) / (total - internet_did_not_respond),
-      device_percent_answered = device_total_answered / total,
-      internet_percent_answered = internet_total_answered / total,
-      geography = sheet
-    ) %>%
-    # Removing Hispanic Origin and Race Header Row
-    slice(-1)
-
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
-  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  result <- data_by_race %>%
-    select(
-      variable, geography, device_rarely_available, device_never_available, device_total_answered,
-      internet_rarely_available, internet_never_available, internet_total_answered,
-      perc_dev_unavail, perc_int_unavail, total, device_percent_answered, internet_percent_answered
-    ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
-    mutate(week_num = wk_num)
-  return(result)
-}
-
-readin_educ_affected_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table educ2, or education change table. The
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
-  #
-  # INPUTS:
-  #   sheet (chr): Name of sheet to read in. This usually does NOT
-  #   have to be manually specified and is instead done automatically in
-  #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-  data <- read_excel(filepath,
-    skip = skip,
-    col_names = c(
-      "variable",
-      "total",
-      "classes_distance_using_online_materials",
-      "classes_distance_using_paper_materials",
-      "classes_cancelled",
-      "classes_changed_another_Way",
-      "classes_unchanged",
-      "did_not_report"
-    ),
-    col_types = c(
-      "text",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric"
-    ),
-    sheet = sheet
-  )
-
-  data_by_race <- data %>%
-    # Assumes only rows with Hispanic in title will be race vars. True for now
-    filter(str_detect(
-      variable,
-      "Hispanic"
-    )) %>%
-    mutate_at(vars(-variable), as.numeric) %>%
-    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-    mutate_at(vars(-variable), replace_na, 0) %>%
-    # NOTE: This was a multiple choice questions so columns
-    # may not sum to total columns. We can only calculate percentages
-    # for one columns
-    mutate(
-      total_answered = total - did_not_report,
-      perc_classes_cancelled = classes_cancelled / total_answered,
-      perc_using_distance_learning_online = classes_distance_using_online_materials / total_answered,
-      perc_using_distance_learning_paper = classes_distance_using_paper_materials / total_answered,
-      geography = sheet
-    ) %>%
-    # Removing Hispanic Origin and Race Header Row
-    slice(-1)
-
-  # Check that totals add up
-  # assert(data_by_race %>%
-  #          mutate(total_comp = income_loss_since_mar_13 + no_income_loss_since_mar_13 +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% food_insuff_data_by_race$total %>% discard(is.na) %>% round(1))
-  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  
-  result <- data_by_race %>%
-    select(
-      variable, geography, total, total_answered, perc_classes_cancelled,
-      perc_using_distance_learning_online, perc_using_distance_learning_paper
-    ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
-    mutate(week_num = wk_num)
-  return(result)
-}
 
 readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
   # Specific cleaning function for table employ1, or lost employment income. All the
@@ -254,86 +89,9 @@ readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
 
-  # Check that totals add up
-  # assert(data_by_race %>%
-  #          mutate(total_comp = income_loss_since_mar_13 + no_income_loss_since_mar_13 +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% food_insuff_data_by_race$total %>% discard(is.na) %>% round(1))
-
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(variable, geography, total_answered_lose, total_answered_lost, income_loss_since_mar_13, income_loss_next_4_wks, perc_lost_income, perc_lose_income) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
-    mutate(week_num = wk_num)
-  return(result)
-}
-
-readin_avoided_medical_care_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table health1, or delayed medical care.All the
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
-  #
-  # INPUTS:
-  #   sheet (chr): Name of sheet to read in. This usually does NOT
-  #   have to be manually specified and is instead done automatically in
-  #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-
-  # AS: changed did_get and did_not_get because question is negatively worded (so yes = did not get)
-  data <- read_excel(filepath,
-    skip = skip,
-    col_names = c(
-      "variable",
-      "delayed_med_care_did_not_get",
-      "delayed_med_care_did_get",
-      "delayed_med_care_did_not_report",
-      "needed_med_care_did_not_get",
-      "needed_med_care_did_get",
-      "needed_med_care_did_not_report"
-    ),
-    col_types = c(
-      "text",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric"
-    ),
-    sheet = sheet
-  )
-
-  data_by_race <- data %>%
-    # Assumes only rows with Hispanic in title will be race vars. True for now
-    filter(str_detect(
-      variable,
-      "Hispanic"
-    )) %>%
-    mutate_at(vars(-variable), as.numeric) %>%
-    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-    mutate_at(vars(-variable), replace_na, 0) %>%
-    mutate( # NOTE: No totals in the data
-      perc_not_get_med_care = needed_med_care_did_not_get / (needed_med_care_did_not_get + needed_med_care_did_get),
-      geography = sheet
-    ) %>%
-    # Removing Hispanic Origin and Race Header Row
-    slice(-1)
-
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
-
-  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  result <- data_by_race %>%
-    select(variable, geography, needed_med_care_did_get, needed_med_care_did_not_get, needed_med_care_did_not_report, perc_not_get_med_care) %>%
-    # AS: updated week num to generalize to numbers with two digits
     mutate(week_num = wk_num)
   return(result)
 }
@@ -391,96 +149,16 @@ readin_food_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
 
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(
       variable, geography, total_food_insecure, total_answered, total,
       percent_food_insecure, percent_answered
     ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
 
-readin_food_children_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table food3b, or food insecurity in households with children.All the
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
-  #
-  # INPUTS:
-  #   sheet (chr): Name of sheet to read in. This usually does NOT
-  #   have to be manually specified and is instead done automatically in
-  #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-  data <- read_excel(filepath,
-    skip = skip,
-    col_names = c(
-      "variable",
-      "total",
-      "enough",
-      "enough_but_not_wanted",
-      "sometimes_not_enough",
-      "often_not_enough",
-      "did_not_report"
-    ),
-    col_types = c(
-      "text",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric"
-    ),
-    sheet = sheet
-  )
-
-  data_by_race <- data %>%
-    # Assumes only rows with Hispanic in title will be race vars. True for now
-    filter(str_detect(
-      variable,
-      "Hispanic"
-    )) %>%
-    mutate_at(vars(-variable), as.numeric) %>%
-    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-    mutate_at(vars(-variable), replace_na, 0) %>%
-    mutate(
-      total_answered_children = total - did_not_report,
-      # NOTE: We only count often note enough and sometimes not enough respondents as food insecure
-      total_food_insecure_children = often_not_enough + sometimes_not_enough,
-      percent_food_insecure_children = total_food_insecure_children / total_answered_children,
-      percent_answered_children = total_answered_children / total,
-      geography = sheet
-    ) %>%
-    # Removing Hispanic Origin and Race Header Row
-    slice(-1)
-
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
-  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  result <- data_by_race %>%
-    select(
-      variable, geography, total_food_insecure_children, total_answered_children, total,
-      percent_food_insecure_children, percent_answered_children
-    ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
-    mutate(week_num = wk_num)
-  return(result)
-}
 
 readin_conf_pay_mortgage_data <- function(sheet, filepath, skip = 5) {
   # Specific cleaning function for table housing2a, or confidence in paying mortgage next month.All the
@@ -492,9 +170,6 @@ readin_conf_pay_mortgage_data <- function(sheet, filepath, skip = 5) {
   #   have to be manually specified and is instead done automatically in
   #   wrapper functions
   #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-
-
-
 
   data <- tryCatch(
     {
@@ -560,14 +235,6 @@ readin_conf_pay_mortgage_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
 
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(
@@ -575,7 +242,6 @@ readin_conf_pay_mortgage_data <- function(sheet, filepath, skip = 5) {
       slight_confidence, moderate_confidence, high_confidence, payment_deferred,
       total, did_not_respond_conf, did_not_respond_tenure, owned_free_clear
     ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
@@ -590,8 +256,6 @@ readin_conf_pay_rent_data <- function(sheet, filepath, skip = 5) {
   #   have to be manually specified and is instead done automatically in
   #   wrapper functions
   #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-
-
 
   data <- tryCatch(
     {
@@ -656,14 +320,6 @@ readin_conf_pay_rent_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
 
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(
@@ -671,7 +327,6 @@ readin_conf_pay_rent_data <- function(sheet, filepath, skip = 5) {
       slight_confidence, moderate_confidence, high_confidence, payment_deferred,
       total, did_not_respond_conf, did_not_respond_tenure
     ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
@@ -686,8 +341,6 @@ readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
   #   have to be manually specified and is instead done automatically in
   #   wrapper functions
   #   filepath (chr): Local filepath to rent table after its been downloaded
-  
-  
   
   data <- tryCatch(
     {
@@ -746,113 +399,14 @@ readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
   
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(
       variable, geography, payment_caughtup_yes, total, occup_no_rent, did_not_report,perc_rent_caughtup,total_answered
     ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
-
-readin_stimulus_expenses_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table housing 2b, or confidence in paying rent this month.All the
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
-  #
-  # INPUTS:
-  #   sheet (chr): Name of sheet to read in. This usually does NOT
-  #   have to be manually specified and is instead done automatically in
-  #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-  
-  
-  
-  data <- tryCatch(
-    {
-      data <- read_excel(filepath,
-                         skip = skip,
-                         col_names = c(
-                           "variable",
-                           "total",
-                           "used_expenses",
-                           "used_debt",
-                           "used_savings",
-                           "payment_not_received",
-                           "did_not_respond"
-                         ),
-                         col_types = "text",
-                         sheet = sheet
-      )
-    },
-    error = function(err) {
-      
-      # error handler picks up where error was generated
-      # print(paste("Column number error:  ", err))
-      data <- read_excel(filepath,
-                         skip = skip,
-                         col_names = c(
-                           "variable",
-                           "total",
-                           "used_expenses",
-                           "used_debt",
-                           "used_savings",
-                           "payment_not_received",
-                           "did_not_respond"
-                         ),
-                         col_types = "text",
-                         sheet = sheet
-      )
-      return(data)
-    }
-  )
-  
-  
-  data_by_race <- data %>%
-    # Assumes only rows with Hispanic in title will be race vars. True for now
-    filter(str_detect(
-      variable,
-      "Hispanic"
-    )) %>%
-    mutate_at(vars(-variable), as.numeric) %>%
-    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-    mutate_at(vars(-variable), replace_na, 0) %>%
-    mutate(
-      perc_used_expenses = used_expenses / (total - payment_not_received - did_not_respond),
-      total_answered = total - payment_not_received - did_not_respond,
-      geography = sheet
-    ) %>%
-    # Removing Hispanic Origin and Race Header Row
-    slice(-1)
-  
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
-  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  result <- data_by_race %>%
-    select(
-      variable, geography, perc_used_expenses, used_expenses, used_debt, used_savings,
-      total, did_not_respond, total_answered, payment_not_received
-    ) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
-    mutate(week_num = wk_num)
-  return(result)
-}
-
 
 readin_mental_health_anxiety_data <- function(sheet, filepath, skip = 5) {
   # Specific cleaning function for table health2a, or symptoms of anxiety.All the
@@ -911,18 +465,9 @@ readin_mental_health_anxiety_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
 
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(variable, geography, anxiety_signs) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
@@ -937,7 +482,6 @@ readin_mental_health_depression_data <- function(sheet, filepath, skip = 5) {
   #   have to be manually specified and is instead done automatically in
   #   wrapper functions
   #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-
 
   data <- read_excel(filepath,
     skip = skip,
@@ -986,23 +530,7 @@ readin_mental_health_depression_data <- function(sheet, filepath, skip = 5) {
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
 
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
-
-  # AS: store wk_num as separate varaiable in order to correctly collect week number for week 2
-  # to create week_num variable in line 679
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  wk_num <- ifelse(filepath == "data/raw-data/health2b_wk2-full.xlsx",
-    "wk2",
-    wk_num
-  )
-
   result <- data_by_race %>%
     select(variable, geography, depressed_signs) %>%
     mutate(week_num = wk_num)
@@ -1056,78 +584,13 @@ readin_health_insurance_data <- function(sheet, filepath, skip = 5) {
     ) %>%
     # Removing Hispanic Origin and Race Header Row
     slice(-1)
-
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
   wk_num <- str_match(filepath, "week(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(variable, geography, insured_public, uninsured) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
 
-readin_employment_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table employ2, or food emplyment status by sector.All the
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
-  #
-  # INPUTS:
-  #   sheet (chr): Name of sheet to read in. This usually does NOT
-  #   have to be manually specified and is instead done automatically in
-  #   wrapper functions
-  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-  data <- read_excel(filepath,
-    skip = skip,
-    col_names = c(
-      "variable",
-      "total",
-      "government",
-      "private",
-      "nonprofit",
-      "self_employed",
-      "fam_business",
-      "employed_did_not_respond",
-      "not_employed",
-      "did_not_respond"
-    ),
-    col_types = c(
-      "text",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric",
-      "numeric"
-    ),
-    sheet = sheet
-  )
-
-  data_by_race <- data %>%
-    # Assumes only rows with Hispanic in title will be race vars. True for now
-    filter(str_detect(
-      variable,
-      "Hispanic"
-    )) %>%
-    mutate_at(vars(-variable), as.numeric) %>%
-    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-    mutate_at(vars(-variable), replace_na, 0) %>%
-    mutate(
-      entrepreneurship_health = (self_employed + fam_business) / (total - employed_did_not_respond - did_not_respond),
-      geography = sheet
-    ) %>%
-    # Removing Hispanic Origin and Race Header Row
-    slice(-1)
-}
 #YS: read in additional tables for quality check
 
   readin_eviction_data <- function(sheet, filepath, skip = 5) {
@@ -1184,7 +647,6 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
     wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
     result <- data_by_race %>%
       select(variable, geography, percent_eviction_risk, total_eviction_risk, total_answered) %>%
-      # MM: this assumes the week is single digit, and that the file name is standardized
       mutate(week_num = wk_num)
     return(result)
     
@@ -1238,21 +700,10 @@ readin_employment_data <- function(sheet, filepath, skip = 5) {
         ) %>%
         # Removing Hispanic Origin and Race Header Row
         slice(-1)
-  
-  
-  # Check that totals add up (In week 3 asian total is off by 1? Need to investigate)
-  # assert(data_by_race %>%
-  #          mutate(total_comp = enough + enough_but_not_wanted +
-  #                   sometimes_not_enough + often_not_enough +
-  #                   did_not_report) %>%
-  #          pull(total_comp) %>%
-  #          discard(is.na) %>%
-  #          round(1) %==% data_by_race$total %>% discard(is.na) %>% round(1))
 
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
     select(variable, geography, percent_telework_start, total_telework_start, total_answered) %>%
-    # MM: this assumes the week is single digit, and that the file name is standardized
     mutate(week_num = wk_num)
   return(result)
 }
@@ -1283,8 +734,6 @@ generate_table_data <- function(table_var, week_num) {
     "housing1b", "readin_rent_caughtup_data", "rent_caughtup",
     "health4", "readin_mental_health_anxiety_data", "anxiety_depression_signs",
     "health3", "readin_health_insurance_data", "health_insurance",
-    "employ2", "readin_employment_data", "employment",
-    "stimulus1", "readin_stimulus_expenses_data", "stimulus_expenses",
     "housing3b", "readin_eviction_data","eviction_risk",
     "transport1", "readin_telework_data", "telework"
   )
