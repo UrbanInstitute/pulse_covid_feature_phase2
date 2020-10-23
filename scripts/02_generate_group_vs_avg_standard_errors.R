@@ -163,7 +163,7 @@ get_se_diff <- function(..., svy = svy_all) {
         sqrt() %>%
         {
           . * 2
-        }
+        }  
   
       result <- tibble(
         mean = mean,
@@ -188,6 +188,7 @@ get_se_diff <- function(..., svy = svy_all) {
   # if race_indicator isn't total, then compare subgroup to geography avg
    } else {
     # identify whether geography is state or cbsa
+     # AN: May want to consider using str_detect for a tiduer solution, but grepl works fine!
     geo_col_name <- ifelse(grepl("cbsa", dots$geo_col, fixed = TRUE), "cbsa_title", "state")
 
     # Use trycatch bc there are 4 metric-week-geogarphy combinations
@@ -291,7 +292,7 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_all)
     unique() %>%
     na.omit()
 
-  # Create grid of all metric/reace/geo/week combos
+  # Create grid of all metric/race/geo/week combos
   full_combo <- expand_grid(
     metric = metrics,
     race_indicator = race_indicators,
@@ -300,7 +301,7 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, svy = svy_all)
   ) %>%
     left_join(geo_xwalk, by = "geo_col")
 
-   #for testing (as running on all combintaions takes up too much RAM)
+   #for testing (as running on all combinations takes up too much RAM)
    #full_combo = full_combo %>% 
   #   filter(metric %in% c("telework"))
 

@@ -593,8 +593,68 @@ readin_health_insurance_data <- function(sheet, filepath, skip = 5) {
 
 #YS: read in additional tables for quality check
 
-  readin_eviction_data <- function(sheet, filepath, skip = 5) {
-    # Specific cleaning function for table eviction.All the
+# AN: Untabbed for readability
+readin_eviction_data <- function(sheet, filepath, skip = 5) {
+  # Specific cleaning function for table eviction.All the
+  # inputs to this fxn should be automatically selected by the wrapper function
+  # and should NOT have to be manually entered.
+  #
+  # INPUTS:
+  #   sheet (chr): Name of sheet to read in. This usually does NOT
+  #   have to be manually specified and is instead done automatically in
+  #   wrapper functions
+  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
+  data <- read_excel(filepath,
+                     skip = skip,
+                     col_names = c(
+                       "variable",
+                       "total",
+                       "very_likely",
+                       "somewhat_likely",
+                       "not_very_likely",
+                       "not_likely",
+                       "did_not_report"
+                     ),
+                     col_types = c(
+                       "text",
+                       "numeric",
+                       "numeric",
+                       "numeric",
+                       "numeric",
+                       "numeric",
+                       "numeric"
+                     ),
+                     sheet = sheet
+  )
+  
+  data_by_race <- data %>%
+    # Assumes only rows with Hispanic in title will be race vars. True for now
+    filter(str_detect(
+      variable,
+      "Hispanic"
+    )) %>%
+    mutate_at(vars(-variable), as.numeric) %>%
+    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
+    mutate_at(vars(-variable), replace_na, 0) %>%
+    mutate(
+      total_answered= total - did_not_report,
+      total_eviction_risk= very_likely + somewhat_likely,
+      percent_eviction_risk = (very_likely + somewhat_likely) / (total - did_not_report),
+      geography = sheet
+    ) %>%
+    # Removing Hispanic Origin and Race Header Row
+    slice(-1)
+  
+  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
+  result <- data_by_race %>%
+    select(variable, geography, percent_eviction_risk, total_eviction_risk, total_answered) %>%
+    mutate(week_num = wk_num)
+  return(result)
+  
+}
+
+readin_telework_data <- function(sheet, filepath, skip = 5) {
+    # Specific cleaning function for table health4. All the
     # inputs to this fxn should be automatically selected by the wrapper function
     # and should NOT have to be manually entered.
     #
@@ -608,15 +668,13 @@ readin_health_insurance_data <- function(sheet, filepath, skip = 5) {
                        col_names = c(
                          "variable",
                          "total",
-                         "very_likely",
-                         "somewhat_likely",
-                         "not_very_likely",
-                         "not_likely",
+                         "telework_start_yes",
+                         "telework_start_no",
+                         "no_change",
                          "did_not_report"
                        ),
                        col_types = c(
                          "text",
-                         "numeric",
                          "numeric",
                          "numeric",
                          "numeric",
@@ -637,75 +695,18 @@ readin_health_insurance_data <- function(sheet, filepath, skip = 5) {
       mutate_at(vars(-variable), replace_na, 0) %>%
       mutate(
         total_answered= total - did_not_report,
-        total_eviction_risk= very_likely + somewhat_likely,
-        percent_eviction_risk = (very_likely + somewhat_likely) / (total - did_not_report),
+        total_telework_start= telework_start_yes,
+        percent_telework_start = telework_start_yes/ (total - did_not_report),
         geography = sheet
       ) %>%
       # Removing Hispanic Origin and Race Header Row
       slice(-1)
-    
-    wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-    result <- data_by_race %>%
-      select(variable, geography, percent_eviction_risk, total_eviction_risk, total_answered) %>%
-      mutate(week_num = wk_num)
-    return(result)
-    
-  }
-  
-  readin_telework_data <- function(sheet, filepath, skip = 5) {
-      # Specific cleaning function for table health4. All the
-      # inputs to this fxn should be automatically selected by the wrapper function
-      # and should NOT have to be manually entered.
-      #
-      # INPUTS:
-      #   sheet (chr): Name of sheet to read in. This usually does NOT
-      #   have to be manually specified and is instead done automatically in
-      #   wrapper functions
-      #   filepath (chr): Local filepath to food insecurity table after its been downloaded
-      data <- read_excel(filepath,
-                         skip = skip,
-                         col_names = c(
-                           "variable",
-                           "total",
-                           "telework_start_yes",
-                           "telework_start_no",
-                           "no_change",
-                           "did_not_report"
-                         ),
-                         col_types = c(
-                           "text",
-                           "numeric",
-                           "numeric",
-                           "numeric",
-                           "numeric",
-                           "numeric"
-                         ),
-                         sheet = sheet
-      )
-      
-      data_by_race <- data %>%
-        # Assumes only rows with Hispanic in title will be race vars. True for now
-        filter(str_detect(
-          variable,
-          "Hispanic"
-        )) %>%
-        mutate_at(vars(-variable), as.numeric) %>%
-        # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
-        mutate_at(vars(-variable), replace_na, 0) %>%
-        mutate(
-          total_answered= total - did_not_report,
-          total_telework_start= telework_start_yes,
-          percent_telework_start = telework_start_yes/ (total - did_not_report),
-          geography = sheet
-        ) %>%
-        # Removing Hispanic Origin and Race Header Row
-        slice(-1)
 
-  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
-  result <- data_by_race %>%
-    select(variable, geography, percent_telework_start, total_telework_start, total_answered) %>%
-    mutate(week_num = wk_num)
-  return(result)
+wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
+result <- data_by_race %>%
+  select(variable, geography, percent_telework_start, total_telework_start, total_answered) %>%
+  mutate(week_num = wk_num)
+return(result)
 }
 
 
@@ -1105,7 +1106,8 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
 
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
-  # replace with last two weeks 
+  # replace with last two weeks
+  # AN: this will need to be updated every week, is that ok? Or do we want to reparametrize?
   wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
