@@ -7,6 +7,7 @@ library(stringr)
 library(tidyverse)
 library(httr)
 library(here)
+library(janitor)
 
 ###### Notes on Changes Needed #########
 # - done- add new vars
@@ -64,12 +65,13 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
                   # By default uses winnet method which is for some reason very slow
                   method = "libcurl"
     )
-    
+
   }
   
   # Unzip PUF, data dictionary files, and repweight file
   unzip(str_glue("data/raw-data/public_use_files/week_{week_num_padded}.zip"),
-    exdir = "data/raw-data/public_use_files",
+    #AN: I get unzip error 1 when extracting zip file if I don't include last `/'
+    exdir = "data/raw-data/public_use_files/",
     # extract PUF file and data dictionary
     files = c(
       str_glue("pulse2020_puf_{week_num_padded}.csv"),
@@ -201,6 +203,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       # Dummy var caught up on rent (1 = yes, 0 = no)
       rent_caughtup = case_when(
         # did not pay on time or payment deferred = 1
+        # AN: I've confirmed that when rentcur ==1, the only allowed value of tenure is 3. So the tenure == 3 is probably unnecessary. Note I've only tested this for the week 1 data
         rentcur == 1 & tenure == 3 ~ 1,
         # paid on time = 0
         rentcur == 2 & tenure == 3 ~ 0,
@@ -209,6 +212,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       # Dummy var for caught up on mortage (1 = yes, 0 = no)
       mortgage_caughtup = case_when(
         # slight or no confidnece or payment already deferred = 1
+        # AN: I've confirmed that when rentcur ==1, the only allowed value of tenure is 3. So the tenure == 3 is probably unnecessary. Note I've only tested this for the week 1 data
         mortcur == 1 & tenure == 2 ~ 1,
         # moderate or high confidence = 0
         mortcur == 2 & tenure == 2 ~ 0,
@@ -306,11 +310,20 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
                                     TRUE ~ NA_real_
       ),
       #dummy for eviction risk
+      # AN: Looking at the universe for this question, it seems like this
+      # question was asked of everyone who answered rentcur == 2 and tenure == 3,
+      # or that they are renters and they are not caught up on rent. Just wanted
+      # flag this for the writeup. I've also confirmed that if we included the
+      # above two conditions in the case_when statement, the numbers don't change
       eviction_risk = case_when(evict %in% c(1, 2) ~ 1,
                                 evict %in% c(3, 4) ~ 0,
                                 TRUE ~ NA_real_
       ),
       #dummy for foreclosure risk
+      # AN: Looking at the universe for this question, it seems like this
+      # question was asked of everyone who answered mortcur == 2 and tenure == 2,
+      # or that they pay mortgages and are not caught up on mortgages. 
+      # Flagging this for writeup
       foreclosure_risk = case_when(forclose %in% c(1, 2) ~ 1,
                                    forclose %in% c(3, 4) ~ 0,
                                    TRUE ~ NA_real_
@@ -413,16 +426,16 @@ appended_column_data_dictionary <-
     "worry_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
     "interest_score", "A recoding of the interest variable to correctly reflect the numerical scores used to determine symptoms of major depresive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
     "down_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of major depressive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
-    "anxiety_signs", "An indicator variable for if the respondent is showing signs of generalized anxiety disorder. This is coded as 1 if the sum of anxious_score and worry_score is >= 3. Respondents with missing responses to both questions are coded as NA and 0 otherwise",
-    "depression_signs", "An indicator variable for if the respondent is showing signs of major depressive disroder. This is coded as 1 if the sum of down_score and interest_score is >= 3.  Respondents with missing responses to both questions are coded as NA and 0 otherwise",
-    "depression_anxiety_signs", " An indicator variable if the respondent is showing either signs of major depressive disorder or generalized anxiety disorder. Respondents with missing responses to both anxiety_signs and depression_signs are coded as NA",
+    "anxiety_signs", "Indicator variable for if the respondent is showing signs of generalized anxiety disorder. This is coded as 1 if the sum of anxious_score and worry_score is >= 3. Respondents with missing responses to both questions are coded as NA and 0 otherwise",
+    "depression_signs", "Indicator variable for if the respondent is showing signs of major depressive disroder. This is coded as 1 if the sum of down_score and interest_score is >= 3.  Respondents with missing responses to both questions are coded as NA and 0 otherwise",
+    "depression_anxiety_signs", " Indicator variable if the respondent is showing either signs of major depressive disorder or generalized anxiety disorder. Respondents with missing responses to both anxiety_signs and depression_signs are coded as NA",
     "expense_dif", "Indicator variable for if a respondent reported difficulty for their household to pay for usual household expense n the last 7 days ",
-    "telework", "Indicator for at least one adults in this household substitute some or all of their typical in-person work for telework because of the coronavirus pandemic",
-    "metalhealth_unmet", "Indicator for needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason",
-    "eviction_risk", "Indicator for the likelihood of the household will have to leave this home or apartment within the next two months because of eviction",
-    "foreclosure_risk", "Indicator for the likelihood of the household will have to leave this home within the next two months because of foreclosure",
-    "learning_fewer", "Indicator for the student(s) spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
-    "spend_snap", "Indicator for household members using SNAP to meet their spending needs in the past 7 days",
+    "telework", "Indicator variable for if at least one adult in this household substitutes some or all of their typical in-person work for telework because of the coronavirus pandemic",
+    "metalhealth_unmet", "Indicator variable for if respondent needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason",
+    "eviction_risk", "Indicator variable for if the household will very likely or extremely likely have to leave this home or apartment within the next two months because of eviction. ",
+    "foreclosure_risk", "Indicator variable for if the houeshold will very likely or extremely likely have to leave this home within the next two months because of foreclosure",
+    "learning_fewer", "Indicator variable for if the student(s) in the household spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
+    "spend_snap", "Indicator variable for if household members are using SNAP to meet their spending needs in the past 7 days",
     "week_num", "The week number that the survey data is from",
     "state", "2 digit abbrevation of the state that respondents are from",
     "state_name", "The full name of the state that respondents are from",
