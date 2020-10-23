@@ -1,6 +1,6 @@
 # pulse_covid_feature_phase2
 
-**Note:** This entry includes the data for phase 2 of the Household Pulse Survey which  began on August 19, 2020, and will collect data in two-week intervals through October 26, 2020.  This entry will be updated biweekly until the final data release on November 18,  2020. The first phase of the Household Pulse Survey ran from April 23 to July 21, 2020. The code for analyzing the phase 1 data can be found (here)[https://github.com/UrbanInstitute/pulse_covid_feature].
+**Note:** This entry includes the code for analyzing phase 2 of the Household Pulse Survey which  began on August 19, 2020, and will collect data in two-week intervals through October 26, 2020. The first phase of the Household Pulse Survey ran from April 23 to July 21, 2020. The code for analyzing the phase 1 data can be found (here)[https://github.com/UrbanInstitute/pulse_covid_feature].
 
 This repository contains the code and data needed to calculate estimates of
 various COVID-19 impacts on US adults and their households by geography and
