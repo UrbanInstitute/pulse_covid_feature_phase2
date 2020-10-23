@@ -812,7 +812,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 14
+CUR_WEEK <- 15
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 
@@ -1108,7 +1108,7 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
 random_test_list <- tibble(
   # replace with last two weeks
   # AN: this will need to be updated every week, is that ok? Or do we want to reparametrize?
-  wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
+  wk_num = sample(c("wk13", "wk14", "wk15"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics,10, replace = TRUE)
@@ -1286,7 +1286,7 @@ test_against_manual_us <- function(svy = svy_obj, data = us_diff_ses, metric_nam
 random_test_list_manual <- tibble(
   metric_name = sample(metrics, 10, replace = TRUE),
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
+  wk_num = sample(c("wk13", "wk14", "wk15"), size = 10, replace = TRUE),
   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
   geo_name = c(sample(all_states, 7), sample(all_metros, 3)),
   geo_col = c(rep("state", 7), rep("cbsa_title", 3))
@@ -1298,7 +1298,7 @@ se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_
 random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
-   wk_num = sample(c("wk13", "wk14"), size = 10, replace = TRUE),
+   wk_num = sample(c("wk13", "wk14", "wk15"), size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
  )
 

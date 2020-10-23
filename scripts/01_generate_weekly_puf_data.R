@@ -71,7 +71,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   # Unzip PUF, data dictionary files, and repweight file
   unzip(str_glue("data/raw-data/public_use_files/week_{week_num_padded}.zip"),
     #AN: I get unzip error 1 when extracting zip file if I don't include last `/'
-    exdir = "data/raw-data/public_use_files/",
+    #AS: I get unzip error when I DO include it on week 14, look into creation of dir
+    exdir = "data/raw-data/public_use_files",
     # extract PUF file and data dictionary
     files = c(
       str_glue("pulse2020_puf_{week_num_padded}.csv"),
@@ -387,7 +388,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 }
 
 
-CUR_WEEK <- 13
+CUR_WEEK <- 15
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
