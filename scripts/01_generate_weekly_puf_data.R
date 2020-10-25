@@ -388,8 +388,24 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 }
 
 calculate_response_rate_metrics <- function(df_clean) {
+  # Function to calculate the following response rate metrics:
+  #   1) rr_out: the proportion of total survey respondents by race and overall that answered the question(s)
+  #   2) job_loss_out: the proportion of respondents who answered that at least one member of their household had lost 
+  #     employment income since March 13 for those that did and did not answer the question(s). We choose this metric
+  #     because the overall item response for this metric is very high (> 99%) though some respondents did not answer.
+  #   3) prop_resp_by_race: the proportion of total respondents to the question(s) from each race/ethnicity group.
+  #
+  # For metrics where all respondent answer the questions (metrics_no_elig) we use the question(s) that are
+  # used to calculate the metric. Where only certain respondents receive the questions (learning_fewer, rent_not_conf, 
+  # mortgage_not_conf, rent_caughtup, mortgage_caughtup, eviction_risk, foreclosure_risk) we use the response rate to the
+  # question that determines eligibility to receive the question(s) used to calculate the metric to approximate
+  #
+  # INPUTS:
+  #   df_clean: dataframe output from download_and_clean_puf_data() function
+  # OUTPUTS:
+  #   list of dataframes with response rate metrics: rr_out, job_loss_out, prop_resp_by_race
+  
   metrics_no_elig <- c(
-    "hisp_rrace",
     "uninsured",
     "insured_public",
     "inc_loss",
@@ -406,56 +422,14 @@ calculate_response_rate_metrics <- function(df_clean) {
     "expense_dif"
   )
   
-  elig_pct <- df_clean %>%
-    mutate(elig_classes_cancelled = case_when(enroll1 == 1 ~ 1, 
-                                              enroll2 == 1 | enroll3 == 1 ~ 0,
-                                              T ~ NA_real_),
-           elig_rent = case_when(tenure == 3 ~ 1, 
-                                 tenure > 0 ~ 0,
-                                 T ~ NA_real_),
-           elig_mortgage= case_when(tenure == 2 ~ 1, 
-                                    tenure > 0 ~ 0,
-                                    T ~ NA_real_),
-           elig_evict = case_when(tenure == 3 & rentcur == 2~ 1, 
-                                  tenure > 0 & rentcur > 0~ 0,
-                                  T ~ NA_real_),
-           elig_foreclose = case_when(tenure == 2 & mortcur == 2~ 1, 
-                                  tenure > 0 & mortcur > 0~ 0,
-                                  T ~ NA_real_)) %>%
-    summarise(across(starts_with("elig"), ~mean(.x, na.rm = TRUE)))
-  
   answered_df <- df_clean %>% 
     mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
-           answered_tenure = if_else(tenure > 0, 1, 0)) %>%
-    rowwise() %>%
-    mutate(answered_learning_fewer = case_when((enroll1 == 1) & (tch_hrs > 0) ~ 1, 
-                                               (enroll1 == 1) & (tch_hrs < 0) ~ 0,
-                                               runif(1) < elig_pct$elig_classes_cancelled ~ 0,
-                                               T ~ NA_real_),
-           answered_rent_not_conf = case_when((tenure == 3) & (mortconf > 0) ~ 1, 
-                                              (tenure == 3) & (mortconf > 0) ~ 0,
-                                              runif(1) < elig_pct$elig_rent  ~ 0,
-                                              T ~ NA_real_),
-           answered_mortgage_not_conf = case_when((tenure == 2) & (mortconf > 0) ~ 1, 
-                                                  (tenure == 2) & (mortconf < 0) ~ 0,
-                                                  runif(1) < elig_pct$elig_mortgage  ~ 0,
-                                                  T ~ NA_real_),
-           answered_rent_caughtup = case_when((tenure == 3) & (rentcur > 0) ~ 1,
-                                              (tenure == 3) & (rentcur < 0) ~ 0,
-                                              runif(1) < elig_pct$elig_rent  ~ 0,
-                                              T ~ NA_real_),
-           answered_mortgage_caughtup = case_when((tenure == 2) & (mortcur > 0) ~ 1,
-                                                  (tenure == 2) & (mortcur < 0) ~ 0,
-                                                  runif(1) < elig_pct$elig_mortgage  ~ 0,
-                                                  T ~ NA_real_),
-           answered_evction_risk = case_when((tenure == 3) & (rentcur == 2) & (evict > 0) ~ 1,
-                                             (tenure == 3) & (rentcur == 2) & (evict < 0) ~ 0,
-                                             runif(1) < elig_pct$elig_evict  ~ 0,
-                                             T ~ NA_real_),
-           answered_forclosure_risk = case_when((tenure == 2) & (mortcur == 2) & (forclose > 0) ~ 1,
-                                                (tenure == 2) & (mortcur == 2) & (forclose < 0) ~ 0,
-                                                runif(1) < elig_pct$elig_foreclose  ~ 0,
-                                                T ~ NA_real_))
+           answered_tenure = if_else(tenure > 0, 1, 0),
+           #AS: the rr for enroll is very low because many respondents without schoolage kids may skip this question
+           # some that didn't answer this question went on to answer subsequent questions, and there's no clear pattern
+           # with -99 for all options or -88 for all options signifying that the respondent didn't answer remaining questions
+           answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
+                                       TRUE ~ 0)) 
   
   prop_resp_by_race <- answered_df %>%
     select(week_num, hisp_rrace, starts_with("answered")) %>%
@@ -475,8 +449,7 @@ calculate_response_rate_metrics <- function(df_clean) {
     summarise(across(starts_with("answered"), ~mean(.x, na.rm = TRUE))) %>%
     mutate(hisp_rrace = "Total")
   
-  rr_out <- rbind(rr_by_race, rr_total) %>%
-    left_join(prop_resp_by_race, by = c("hisp_rrace", "week_num"), suffix = c("_rr", "_prop"))
+  rr_out <- rbind(rr_by_race, rr_total)
   
   job_loss_non_answer_race <- answered_df %>%
     filter(!is.na(inc_loss)) %>%
@@ -499,7 +472,7 @@ calculate_response_rate_metrics <- function(df_clean) {
   
   job_loss_out <- rbind(job_loss_non_answer_race, job_loss_non_answer_all)
   
-  return(list(rr_out, job_loss_out))
+  return(list(rr_out, job_loss_out, prop_resp_by_race))
   
 }
 
@@ -514,6 +487,7 @@ puf_all_weeks <- map_df(week_vec, download_and_clean_puf_data)
 metric_list <- calculate_response_rate_metrics(puf_all_weeks)
 rr_out <- metric_list[[1]]
 job_loss_out <- metric_list[[2]]
+prop_resp_race_out <- metric_list[[3]]
 
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
@@ -524,6 +498,7 @@ write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.cs
 
 write_csv(rr_out, here("data/intermediate-data", "pulse2_rr_metrics_race_all.csv"))
 write_csv(job_loss_out, here("data/intermediate-data", "pulse2_rr_metrics_job_loss_all.csv"))
+write_csv(prop_resp_race_out, here("data/intermediate-data", "pulse2_response_by_race_all.csv"))
 
 
 # Manually generate and write out data dictionary for appended columns
@@ -571,4 +546,34 @@ appended_column_data_dictionary <-
 write_csv(
   appended_column_data_dictionary,
   "data/intermediate-data/pulse_puf2_appended_columns_data_dictionary.csv"
+)
+
+# Manually generate and write out data dictionary for rr metrics
+rr_metrics_data_dictionary <-
+  tibble::tribble(
+    ~col_name, ~description,
+    "hisp_rrace", "Combination of Hispanic and Race column. Groups respondents into the following categories: Hispanic, White non Hispanic, Black non Hispanic, Asian non Hispanic, and Other race/two or more races",
+    "answered_uninsured", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for uninsured metric",
+    "answered_insured_public", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for insured_public metric",
+    "answered_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for inc_loss metric",
+    "answered_expect_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for expect_inc_loss metric",
+    "answered_food_insufficient", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for food_insufficient metric",
+    "answered_spend_savings", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_savings metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
+    "answered_spend_credit", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_credit metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
+    "answered_spend_ui", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_ui metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
+    "answered_spend_stimulus", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_stimulus metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
+    "answered_depression_anxiety_signs", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for depression_anxiety_signs metric",
+    "answered_expense_dif", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for expense_dif metric",
+    "answered_telework", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for telework metric",
+    "answered_metalhealth_unmet", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for mentalhealth_unmet metric",
+    "answered_spend_snap", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_snap metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
+    "answered_tenure", "Proportion of total respondents (overall and by race/ethnicity) that answered tenure question. Used as proxy for housing variable response rate because tenure question determines eligibility for housing questions.",
+    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children.",
+    "week_num", "The week number that the survey data is from"
+  )
+
+# Write out data dictionary
+write_csv(
+  rr_metrics_data_dictionary,
+  "data/intermediate-data/pulse_puf2_rr_metrics_data_dictionary.csv"
 )
