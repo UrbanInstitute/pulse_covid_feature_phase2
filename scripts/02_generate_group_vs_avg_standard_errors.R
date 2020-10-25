@@ -7,13 +7,6 @@ library(srvyr)
 library(survey)
 library(fastDummies)
 
-
-###### Notes on changes needed #######
-# -done- no rolling averages, remove code to calculate and use week_num for grouping
-# -done- use svy instead of svy_rolling
-# -done- update vars to reflect new list
-# - confirm non-rolling week_num var/structure
-
 metrics <- c(
   "uninsured",
   "insured_public",
@@ -188,7 +181,6 @@ get_se_diff <- function(..., svy = svy_all) {
   # if race_indicator isn't total, then compare subgroup to geography avg
    } else {
     # identify whether geography is state or cbsa
-     # AN: May want to consider using str_detect for a tiduer solution, but grepl works fine!
     geo_col_name <- ifelse(grepl("cbsa", dots$geo_col, fixed = TRUE), "cbsa_title", "state")
 
     # Use trycatch bc there are 4 metric-week-geogarphy combinations
@@ -421,7 +413,7 @@ generate_se_us <- function(metrics, race_indicators, svy = svy_all) {
 
 race_indicators <- c("black", "asian", "hispanic", "white", "other", "total")
 
-# Update: ran on c5.4xlarge instance and took 3 hours
+#This should be run on a reasonably large machine like a c5.2 instance
 start <- Sys.time()
 all_diff_ses <- generate_se_state_and_cbsas(metrics = metrics, race_indicators = race_indicators)
 end <- Sys.time()

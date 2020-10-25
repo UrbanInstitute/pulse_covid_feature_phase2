@@ -591,9 +591,7 @@ readin_health_insurance_data <- function(sheet, filepath, skip = 5) {
   return(result)
 }
 
-#YS: read in additional tables for quality check
 
-# AN: Untabbed for readability
 readin_eviction_data <- function(sheet, filepath, skip = 5) {
   # Specific cleaning function for table eviction.All the
   # inputs to this fxn should be automatically selected by the wrapper function
@@ -1107,7 +1105,6 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
   # replace with last two weeks
-  # AN: this will need to be updated every week, is that ok? Or do we want to reparametrize?
   wk_num = sample(c("wk13", "wk14", "wk15"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),

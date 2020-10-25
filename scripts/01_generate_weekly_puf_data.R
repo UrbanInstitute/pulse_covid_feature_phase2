@@ -9,14 +9,6 @@ library(httr)
 library(here)
 library(janitor)
 
-###### Notes on Changes Needed #########
-# - done- add new vars
-# - check to confirm var names unchanged
-# - double check denominators where new options added (e.g. spend vars need to all add spndsrc8 >= 0 to denom)
-# - done- remove class_cancelled and stimulus_expenses
-# - done- update var names/definitions for rent_not_paid and mortgage_not_paid
-# - done- update data dictionary
-
 download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-data/public_use_files/") {
   # Function to download in Pulse Public Use File for a given week, and add:
   #   1) cleaned Non Hispanic Race variable, (hisp_rrace)
@@ -32,13 +24,15 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   #   11)adjusted score columns for the mental health questions
   #   12)indicator variable for if a person displays signs of anxiety (anxiety_signs)
   #   13)indicator variable for if a person displays signs of depression (depression_signs)
-  #   14) indicator variable for if a person did not pay rent last month or has already deferred (rent_not_paid)
-  #   15) indicator variable for if a person did not pay mortgage last month or has already deferred (mortgage_not_paid)
-  #   16) indicator variable for if a person that received stimulus payment used it on expenses (stimulus_expenses)
+  #   14) indicator variable for if a person is caught up on rent payments (rent_caughtup)
+  #   15) indicator variable for if a person is caught up on mortgage payments (mortgage_caughtup)
+  #   16) indicator variable for if a person used SNAP to meet spending needs in past 7 days (spend_snap)
   #   17) indicator variable for if a person used credit cards or loans to meet spending needs in past 7 days (spend_credit)
   #   18) indicator variable for if a person used savings to meet spending needs in past 7 days (spend_savings)
   #   19) indicator variable for if a person used UI benefits to meet spending needs in past 7 days (spend_ui)
   #   20) indicator variable for if a person used stimulus payment to meet spending needs in past 7 days (spend_stimulus)
+  #   21) indicator variable for if a person not caught up on rent is somewhat likely or very likely to be evicted in next two months (eviction_risk)
+  #   22) indicator variable for if a person not caught up on mortgage is somewhat likely or very likely to be foreclosed on in next two months (foreclosure_risk)
 
 
   # INPUT:
@@ -70,8 +64,6 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   
   # Unzip PUF, data dictionary files, and repweight file
   unzip(str_glue("data/raw-data/public_use_files/week_{week_num_padded}.zip"),
-    #AN: I get unzip error 1 when extracting zip file if I don't include last `/'
-    #AS: I get unzip error when I DO include it on week 14, look into creation of dir
     exdir = "data/raw-data/public_use_files",
     # extract PUF file and data dictionary
     files = c(
@@ -203,19 +195,17 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       ),
       # Dummy var caught up on rent (1 = yes, 0 = no)
       rent_caughtup = case_when(
-        # did not pay on time or payment deferred = 1
-        # AN: I've confirmed that when rentcur ==1, the only allowed value of tenure is 3. So the tenure == 3 is probably unnecessary. Note I've only tested this for the week 1 data
+        # caught up on rent payments = 1
         rentcur == 1 & tenure == 3 ~ 1,
-        # paid on time = 0
+        # not caught up on rent payments = 0
         rentcur == 2 & tenure == 3 ~ 0,
         TRUE ~ NA_real_
       ),
       # Dummy var for caught up on mortage (1 = yes, 0 = no)
       mortgage_caughtup = case_when(
-        # slight or no confidnece or payment already deferred = 1
-        # AN: I've confirmed that when rentcur ==1, the only allowed value of tenure is 3. So the tenure == 3 is probably unnecessary. Note I've only tested this for the week 1 data
+        # caught up on mortgage payments = 1
         mortcur == 1 & tenure == 2 ~ 1,
-        # moderate or high confidence = 0
+        # not caught up on mortgage payments = 0
         mortcur == 2 & tenure == 2 ~ 0,
         TRUE ~ NA_real_
       ),
@@ -293,7 +283,6 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         down == 4 ~ 3,
         TRUE ~ NA_real_
       ),
-      #YS PULSE 2 update- adding new vars
       #difficulty paying household expenses in past 7 days
       expense_dif= case_when(
       expns_dif >= 3 ~ 1,
@@ -311,20 +300,15 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
                                     TRUE ~ NA_real_
       ),
       #dummy for eviction risk
-      # AN: Looking at the universe for this question, it seems like this
-      # question was asked of everyone who answered rentcur == 2 and tenure == 3,
-      # or that they are renters and they are not caught up on rent. Just wanted
-      # flag this for the writeup. I've also confirmed that if we included the
-      # above two conditions in the case_when statement, the numbers don't change
+      # this question was asked of everyone who answered rentcur == 2 and tenure == 3,
+      # or that they are renters and they are not caught up on rent. 
       eviction_risk = case_when(evict %in% c(1, 2) ~ 1,
                                 evict %in% c(3, 4) ~ 0,
                                 TRUE ~ NA_real_
       ),
       #dummy for foreclosure risk
-      # AN: Looking at the universe for this question, it seems like this
-      # question was asked of everyone who answered mortcur == 2 and tenure == 2,
+      # this question was asked of everyone who answered mortcur == 2 and tenure == 2,
       # or that they pay mortgages and are not caught up on mortgages. 
-      # Flagging this for writeup
       foreclosure_risk = case_when(forclose %in% c(1, 2) ~ 1,
                                    forclose %in% c(3, 4) ~ 0,
                                    TRUE ~ NA_real_
@@ -425,7 +409,7 @@ calculate_response_rate_metrics <- function(df_clean) {
   answered_df <- df_clean %>% 
     mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
            answered_tenure = if_else(tenure > 0, 1, 0),
-           #AS: the rr for enroll is very low because many respondents without schoolage kids may skip this question
+           # the rr for enroll is very low because many respondents without school age kids may skip this question
            # some that didn't answer this question went on to answer subsequent questions, and there's no clear pattern
            # with -99 for all options or -88 for all options signifying that the respondent didn't answer remaining questions
            answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
