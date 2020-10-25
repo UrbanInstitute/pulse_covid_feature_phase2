@@ -432,6 +432,8 @@ calculate_response_rate_metrics <- function(df_clean) {
                                        TRUE ~ 0)) 
   
   prop_resp_by_race <- answered_df %>%
+    #Add in answered_hisp_rrace to get overall survey prop resp by race
+    mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
     select(week_num, hisp_rrace, starts_with("answered")) %>%
     pivot_longer(!c("hisp_rrace", "week_num"), names_to = "metric", values_to = "answered") %>%
     group_by(week_num, metric, hisp_rrace) %>%
