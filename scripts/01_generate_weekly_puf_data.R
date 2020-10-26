@@ -372,23 +372,35 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 }
 
 calculate_response_rate_metrics <- function(df_clean) {
+  # AN: A little confused by the descriptions below (esp for 2.) may need to
+  # clean up a bit. I've rewritten some parts based on what I think the metrics
+  # are measuring, but feel free to correct me.
   # Function to calculate the following response rate metrics:
-  #   1) rr_out: the proportion of total survey respondents by race and overall that answered the question(s)
-  #   2) job_loss_out: the proportion of respondents who answered that at least one member of their household had lost 
-  #     employment income since March 13 for those that did and did not answer the question(s). We choose this metric
-  #     because the overall item response for this metric is very high (> 99%) though some respondents did not answer.
-  #   3) prop_resp_by_race: the proportion of total respondents to the question(s) from each race/ethnicity group.
-  #
-  # For metrics where all respondent answer the questions (metrics_no_elig) we use the question(s) that are
-  # used to calculate the metric. Where only certain respondents receive the questions (learning_fewer, rent_not_conf, 
-  # mortgage_not_conf, rent_caughtup, mortgage_caughtup, eviction_risk, foreclosure_risk) we use the response rate to the
-  # question that determines eligibility to receive the question(s) used to calculate the metric to approximate
+  #   1) rr_out: The proportion of racial group respondents who responded to
+  #      each question (ie 75% of black survey takers responded to Question X in
+  #      Week Y)
+  #   2) job_loss_out: the proportion of respondents who answered that at least
+  #      one member of their household had lost employment income since March 13
+  #      for those that did and did not answer the question(s). We choose this
+  #      metric because the overall item response for this metric is very high
+  #      (> 99%) though some respondents did not answer.
+  #   3) prop_resp_by_race: the racial breakdown of respondents who answered
+  #      each question  (ie 30% of survey takers who responded to Question X
+  #      were black in Week Y)
+  #      For metrics where all respondents answer the questions
+  #      (metrics_no_elig) we use the question(s) that are used to calculate the
+  #      metric. Where only certain respondents receive the questions
+  #      (learning_fewer, rent_not_conf, mortgage_not_conf, rent_caughtup,
+  #      mortgage_caughtup, eviction_risk, foreclosure_risk) we use the response
+  #      rate to the question that determines eligibility to receive the
+  #      question(s) used to calculate the metric to approximate
   #
   # INPUTS:
   #   df_clean: dataframe output from download_and_clean_puf_data() function
   # OUTPUTS:
   #   list of dataframes with response rate metrics: rr_out, job_loss_out, prop_resp_by_race
   
+  # Look into var: learning_fewer, using enrollment variable as proxy
   metrics_no_elig <- c(
     "uninsured",
     "insured_public",
@@ -415,8 +427,13 @@ calculate_response_rate_metrics <- function(df_clean) {
            answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
                                        TRUE ~ 0)) 
   
+
+  # AN: This calculates the racial breakdown of people who answered each of the
+  # questions 
   prop_resp_by_race <- answered_df %>%
-    #Add in answered_hisp_rrace to get overall survey prop resp by race
+    # Add in answered_hisp_rrace to get overall survey prop resp by race
+    # AN: atleast in week 13 and 14, there are no NA's for hisp_rrace. So not
+    # sure if the below is needed.
     mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
     select(week_num, hisp_rrace, starts_with("answered")) %>%
     pivot_longer(!c("hisp_rrace", "week_num"), names_to = "metric", values_to = "answered") %>%
@@ -424,7 +441,25 @@ calculate_response_rate_metrics <- function(df_clean) {
     summarise(across(starts_with("answered"), ~sum(.x, na.rm = TRUE))) %>%
     mutate(across(starts_with("answered"), ~.x/sum(.x, na.rm =  TRUE))) %>%
     pivot_wider(names_from = metric, values_from = answered)
-  
+
+  # AN: Test to see if breakdown by race for answered_uninsured, matches above
+  # test_unins = answered_df %>%
+  #     mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
+  #     select(week_num, hisp_rrace, starts_with("answered")) %>% 
+  #     select(week_num, hisp_rrace, answered_uninsured) %>%
+  #     filter(answered_uninsured == 1) %>% 
+  #     count(hisp_rrace, week_num) %>% 
+  #     group_by(week_num) %>% 
+  #     mutate(answered_uninsured = n / sum(n)) %>% 
+  #     select(week_num, hisp_rrace, answered_uninsured)
+
+
+  # all_equal(
+  #  prop_resp_by_race %>% select(week_num, hisp_rrace, answered_uninsured),
+  #  test_unins
+  # )
+
+
   
   rr_by_race <- answered_df %>%
     group_by(week_num, hisp_rrace) %>%
@@ -436,11 +471,28 @@ calculate_response_rate_metrics <- function(df_clean) {
     mutate(hisp_rrace = "Total")
   
   rr_out <- rbind(rr_by_race, rr_total)
+
+
+    # AN: Test to see if race response rates for anwered_uninsured, matches above
+    # test_unins = answered_df %>%
+    #     mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
+    #     select(week_num, hisp_rrace, starts_with("answered")) %>%
+    #     select(week_num, hisp_rrace, answered_uninsured) %>%
+    #     group_by(week_num, hisp_rrace) %>%
+    #     summarize(answered_uninsured =sum(answered_uninsured, na.rm = TRUE)/ n()) %>%
+    #     select(week_num, hisp_rrace, answered_uninsured)
+    
+    # all_equal(
+    #  rr_by_race %>% select(week_num, hisp_rrace, answered_uninsured),
+    #  test_unins
+    # )
   
   job_loss_non_answer_race <- answered_df %>%
     filter(!is.na(inc_loss)) %>%
     select(week_num, hisp_rrace, inc_loss, starts_with("answered")) %>%
     pivot_longer(!c("hisp_rrace", "week_num", "inc_loss"), names_to = "metric", values_to = "answered") %>%
+    # AN: In my tests of wk13 and wk14, the below line removed no rows, so might
+    # be unnecessary
     filter(!is.na(answered)) %>%
     group_by(week_num, metric, hisp_rrace, answered) %>%
     summarise(inc_loss_pct = mean(inc_loss, na.rm = TRUE)) %>%
@@ -450,6 +502,8 @@ calculate_response_rate_metrics <- function(df_clean) {
     filter(!is.na(inc_loss)) %>%
     select(week_num, inc_loss, starts_with("answered")) %>%
     pivot_longer(!c("week_num", "inc_loss"), names_to = "metric", values_to = "answered") %>%
+    # AN: In my tests of wk13 and wk14, the below line removed no rows, so might
+    # be unnecessary
     filter(!is.na(answered)) %>%
     group_by(week_num, metric, answered) %>%
     summarise(inc_loss_pct = mean(inc_loss, na.rm = TRUE)) %>%
@@ -463,7 +517,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 15
+CUR_WEEK <- 14
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
