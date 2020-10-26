@@ -420,10 +420,37 @@ calculate_response_rate_metrics <- function(df_clean) {
   
   answered_df <- df_clean %>% 
     mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
+          # AN: If you are using tenure variable as proxy for resp rates of
+          # housing variables, I be explicit about the variables that we are
+          # using this as a proxy for so folks see what we're doing.  Same for
+          # the enroll variable. Of course we can also just say this in data
+          # catalog.
            answered_tenure = if_else(tenure > 0, 1, 0),
-           # the rr for enroll is very low because many respondents without school age kids may skip this question
-           # some that didn't answer this question went on to answer subsequent questions, and there's no clear pattern
-           # with -99 for all options or -88 for all options signifying that the respondent didn't answer remaining questions
+           # the rr for enroll is very low because many respondents without
+           # school age kids may skip this question some that didn't answer this
+           # question went on to answer subsequent questions, and there's no
+           # clear pattern with -99 for all options or -88 for all options
+           # signifying that the respondent didn't answer remaining questions
+           # AN: From my reading of the data dictionary, if enroll1,2, and 3 are
+           # all -88 (which happens for a lot of ppl), those values should be
+           # as NA rather than 0 as -88 = missing/did not report. It seems like
+           # they are explicitly using -99 here when category is seen but not
+           # selected. Also when I looked at just respondents who had values of
+           # -88, I confirmed that they must also have values of -88 for the
+           # other education questions that come after: 
+           # 
+           # df_clean %>%
+           # filter(enroll1 == -88) %>% count(teach1, teach2, teach3, teach5,
+           # compavail, comp1, comp2, comp3,intrntavail, schlhrs, tstdy_hrs,
+           # tch_hrs) 
+           # 
+           # This is confusing bc for folks that answered -88, there
+           # are definitely ppl who answered later questions in the survey (like
+           # the income var). So does not mean they stopped taking the survey
+           # altogether, but it does mean somethign along the lines of they did
+           # not see/get an opportunity to answer the question of interst. So I
+           # think the right move is to calculate respnse rates, but exclude
+           # respondesnts with values of -88 in enroll1, enroll2, and enroll3.
            answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
                                        TRUE ~ 0)) 
   
