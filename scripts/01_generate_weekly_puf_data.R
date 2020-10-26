@@ -372,28 +372,26 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 }
 
 calculate_response_rate_metrics <- function(df_clean) {
-  # AN: A little confused by the descriptions below (esp for 2.) may need to
-  # clean up a bit. I've rewritten some parts based on what I think the metrics
-  # are measuring, but feel free to correct me.
   # Function to calculate the following response rate metrics:
   #   1) rr_out: The proportion of racial group respondents who responded to
   #      each question (ie 75% of black survey takers responded to Question X in
   #      Week Y)
-  #   2) job_loss_out: the proportion of respondents who answered that at least
-  #      one member of their household had lost employment income since March 13
-  #      for those that did and did not answer the question(s). We choose this
-  #      metric because the overall item response for this metric is very high
-  #      (> 99%) though some respondents did not answer.
+  #   2) job_loss_out: the proportion of respondents who that did and did not answer the question(s)
+  #      answered that at least one member of their household had lost employment income since March 13.
+  #      (ie 75% of survey respondents who answered Question X in Week Y responded that at least one member
+  #      of their household had lost employment income since March 13 compared to 70% of survey respondents
+  #      who didn't answer Question X in Week Y). We choose this metric because the overall item response 
+  #      for this metric is very high (> 99%) though some respondents did not answer.
   #   3) prop_resp_by_race: the racial breakdown of respondents who answered
   #      each question  (ie 30% of survey takers who responded to Question X
   #      were black in Week Y)
-  #      For metrics where all respondents answer the questions
-  #      (metrics_no_elig) we use the question(s) that are used to calculate the
-  #      metric. Where only certain respondents receive the questions
-  #      (learning_fewer, rent_not_conf, mortgage_not_conf, rent_caughtup,
-  #      mortgage_caughtup, eviction_risk, foreclosure_risk) we use the response
-  #      rate to the question that determines eligibility to receive the
-  #      question(s) used to calculate the metric to approximate
+  #   For metrics where all respondents answer the questions
+  #   (metrics_no_elig) we use the question(s) that are used to calculate the
+  #   metric. Where only certain respondents receive the questions
+  #   (learning_fewer, rent_not_conf, mortgage_not_conf, rent_caughtup,
+  #   mortgage_caughtup, eviction_risk, foreclosure_risk) we use the response
+  #   rate to the question that determines eligibility to receive the
+  #   question(s) used to calculate the metric to approximate response rate
   #
   # INPUTS:
   #   df_clean: dataframe output from download_and_clean_puf_data() function
@@ -420,47 +418,28 @@ calculate_response_rate_metrics <- function(df_clean) {
   
   answered_df <- df_clean %>% 
     mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
-          # AN: If you are using tenure variable as proxy for resp rates of
-          # housing variables, I be explicit about the variables that we are
-          # using this as a proxy for so folks see what we're doing.  Same for
-          # the enroll variable. Of course we can also just say this in data
-          # catalog.
+           # used to approximate response rate for rent_not_conf, mortgage_not_conf, rent_caughtup,
+           #   mortgage_caughtup, eviction_risk, foreclosure_risk
            answered_tenure = if_else(tenure > 0, 1, 0),
+           # used to approximate response rate for learning_fewer
            # the rr for enroll is very low because many respondents without
-           # school age kids may skip this question some that didn't answer this
-           # question went on to answer subsequent questions, and there's no
-           # clear pattern with -99 for all options or -88 for all options
-           # signifying that the respondent didn't answer remaining questions
-           # AN: From my reading of the data dictionary, if enroll1,2, and 3 are
-           # all -88 (which happens for a lot of ppl), those values should be
-           # as NA rather than 0 as -88 = missing/did not report. It seems like
-           # they are explicitly using -99 here when category is seen but not
-           # selected. Also when I looked at just respondents who had values of
-           # -88, I confirmed that they must also have values of -88 for the
-           # other education questions that come after: 
+           # school age kids may skip this question. Some that didn't answer this
+           # question (both coded -88 and -99) went on to answer subsequent questions.
            # 
-           # df_clean %>%
-           # filter(enroll1 == -88) %>% count(teach1, teach2, teach3, teach5,
-           # compavail, comp1, comp2, comp3,intrntavail, schlhrs, tstdy_hrs,
-           # tch_hrs) 
-           # 
-           # This is confusing bc for folks that answered -88, there
-           # are definitely ppl who answered later questions in the survey (like
-           # the income var). So does not mean they stopped taking the survey
-           # altogether, but it does mean somethign along the lines of they did
-           # not see/get an opportunity to answer the question of interst. So I
-           # think the right move is to calculate respnse rates, but exclude
-           # respondesnts with values of -88 in enroll1, enroll2, and enroll3.
+           # When we exclude households without children under 18 by requiring thhld_numkid > 0,
+           # the response rate for enroll is between 80-81% in weeks 13-15. However, there are some
+           # respondents where thhld_numkid == 0 who do answer the enroll question, perhaps either because
+           # they have a member of the household over 18 in school, or to answer "no" (enroll3 == 1).
+           # Because households without children are in the universe of respondents, we decide to keep them
+           # in the denominator for purposes of response rate, but recognize that this is an imperfect metric.
            answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
                                        TRUE ~ 0)) 
   
 
-  # AN: This calculates the racial breakdown of people who answered each of the
+  # This calculates the racial breakdown of people who answered each of the
   # questions 
   prop_resp_by_race <- answered_df %>%
     # Add in answered_hisp_rrace to get overall survey prop resp by race
-    # AN: atleast in week 13 and 14, there are no NA's for hisp_rrace. So not
-    # sure if the below is needed.
     mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
     select(week_num, hisp_rrace, starts_with("answered")) %>%
     pivot_longer(!c("hisp_rrace", "week_num"), names_to = "metric", values_to = "answered") %>%
@@ -468,25 +447,6 @@ calculate_response_rate_metrics <- function(df_clean) {
     summarise(across(starts_with("answered"), ~sum(.x, na.rm = TRUE))) %>%
     mutate(across(starts_with("answered"), ~.x/sum(.x, na.rm =  TRUE))) %>%
     pivot_wider(names_from = metric, values_from = answered)
-
-  # AN: Test to see if breakdown by race for answered_uninsured, matches above
-  # test_unins = answered_df %>%
-  #     mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
-  #     select(week_num, hisp_rrace, starts_with("answered")) %>% 
-  #     select(week_num, hisp_rrace, answered_uninsured) %>%
-  #     filter(answered_uninsured == 1) %>% 
-  #     count(hisp_rrace, week_num) %>% 
-  #     group_by(week_num) %>% 
-  #     mutate(answered_uninsured = n / sum(n)) %>% 
-  #     select(week_num, hisp_rrace, answered_uninsured)
-
-
-  # all_equal(
-  #  prop_resp_by_race %>% select(week_num, hisp_rrace, answered_uninsured),
-  #  test_unins
-  # )
-
-
   
   rr_by_race <- answered_df %>%
     group_by(week_num, hisp_rrace) %>%
@@ -499,28 +459,11 @@ calculate_response_rate_metrics <- function(df_clean) {
   
   rr_out <- rbind(rr_by_race, rr_total)
 
-
-    # AN: Test to see if race response rates for anwered_uninsured, matches above
-    # test_unins = answered_df %>%
-    #     mutate(answered_hisp_rrace = ifelse(is.na(hisp_rrace), 0, 1)) %>%
-    #     select(week_num, hisp_rrace, starts_with("answered")) %>%
-    #     select(week_num, hisp_rrace, answered_uninsured) %>%
-    #     group_by(week_num, hisp_rrace) %>%
-    #     summarize(answered_uninsured =sum(answered_uninsured, na.rm = TRUE)/ n()) %>%
-    #     select(week_num, hisp_rrace, answered_uninsured)
-    
-    # all_equal(
-    #  rr_by_race %>% select(week_num, hisp_rrace, answered_uninsured),
-    #  test_unins
-    # )
   
   job_loss_non_answer_race <- answered_df %>%
     filter(!is.na(inc_loss)) %>%
     select(week_num, hisp_rrace, inc_loss, starts_with("answered")) %>%
     pivot_longer(!c("hisp_rrace", "week_num", "inc_loss"), names_to = "metric", values_to = "answered") %>%
-    # AN: In my tests of wk13 and wk14, the below line removed no rows, so might
-    # be unnecessary
-    filter(!is.na(answered)) %>%
     group_by(week_num, metric, hisp_rrace, answered) %>%
     summarise(inc_loss_pct = mean(inc_loss, na.rm = TRUE)) %>%
     pivot_wider(names_from = metric, values_from = inc_loss_pct)
@@ -529,9 +472,6 @@ calculate_response_rate_metrics <- function(df_clean) {
     filter(!is.na(inc_loss)) %>%
     select(week_num, inc_loss, starts_with("answered")) %>%
     pivot_longer(!c("week_num", "inc_loss"), names_to = "metric", values_to = "answered") %>%
-    # AN: In my tests of wk13 and wk14, the below line removed no rows, so might
-    # be unnecessary
-    filter(!is.na(answered)) %>%
     group_by(week_num, metric, answered) %>%
     summarise(inc_loss_pct = mean(inc_loss, na.rm = TRUE)) %>%
     mutate(hisp_rrace = "Total") %>%
@@ -544,7 +484,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 14
+CUR_WEEK <- 15
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
@@ -635,7 +575,7 @@ rr_metrics_data_dictionary <-
     "answered_metalhealth_unmet", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for mentalhealth_unmet metric",
     "answered_spend_snap", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_snap metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
     "answered_tenure", "Proportion of total respondents (overall and by race/ethnicity) that answered tenure question. Used as proxy for housing variable response rate because tenure question determines eligibility for housing questions.",
-    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children.",
+    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children under 18 (some of whom answer the question).",
     "week_num", "The week number that the survey data is from"
   )
 
