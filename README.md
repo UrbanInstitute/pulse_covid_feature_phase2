@@ -1,4 +1,4 @@
-# pulse_covid_feature_phase2
+# Pulse Covid Feature: Questionnaire Two
 
 **Note:** This entry includes the code for analyzing data from phase 2 and phase 3 of the federal Household Pulse Survey. The third phase of the Household Pulse Survey began on October 28, 2020, and will collect data in two-week intervals through December 21, 2020. The second phase of the Household Pulse Survey ran from August 19,  to October 26, 2020. The first phase of the Household Pulse Survey ran from April 23 to July 21, 2020.  The code for analyzing the phase 1 data can be found [here](https://github.com/UrbanInstitute/pulse_covid_feature).
 
