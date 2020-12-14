@@ -41,7 +41,7 @@ For more information, see the [technical appendix](https://www.urban.org/sites/d
 ## Directory Structure:
 - `scripts/` stores the relevant scripts
     - `01_generate_weekly_puf_data.R`: Downloads Pulse Survey public use files, creates race/ethnicity variable and indicator variables, and appends replicate weights. The data produced from this file is stored on Urban's Data Portal.
-    - `02_generate_group_vs_avg_standard_errors.R`: Calculates means and standard errors for each indicator/geography/week/race combination and significance of difference between each population and subgroup mean. Outputs data file that powers the Tracking COVID-19’s Effects by Race and Ethnicity feature. 
+    - `02_generate_group_vs_avg_standard_errors.R`: Calculates means and standard errors for each indicator/geography/week/race combination and significance of difference between each population and subgroup mean. Outputs data file that powers the Tracking COVID-19’s Effects by Race and Ethnicity: Questionnaire Two feature. 
     - `03_upload_to_s3.R`: Uploads data and metadata to AWS S3 bucket.
     - `04_perform_qc_checks.R`: Conducts quality control checks on the results output from scripts 02 and 03. 
 - `data/` stores the data
