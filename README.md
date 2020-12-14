@@ -1,6 +1,6 @@
 # pulse_covid_feature_phase2
 
-**Note:** This entry includes the code for analyzing phase 2 of the Household Pulse Survey which  began on August 19, 2020, and will collect data in two-week intervals through October 26, 2020. The first phase of the Household Pulse Survey ran from April 23 to July 21, 2020. The code for analyzing the phase 1 data can be found [here](https://github.com/UrbanInstitute/pulse_covid_feature).
+**Note:** This entry includes the code for analyzing data from phase 2 and phase 3 of the federal Household Pulse Survey. The third phase of the Household Pulse Survey began on October 28, 2020, and will collect data in two-week intervals through December 21, 2020. The second phase of the Household Pulse Survey ran from August 19,  to October 26, 2020. The first phase of the Household Pulse Survey ran from April 23 to July 21, 2020.  The code for analyzing the phase 1 data can be found [here](https://github.com/UrbanInstitute/pulse_covid_feature).
 
 This repository contains the code and data needed to calculate estimates of
 various COVID-19 impacts on US adults and their households by geography and
@@ -11,7 +11,7 @@ files](https://www.census.gov/programs-surveys/household-pulse-survey/datasets.h
 to estimate COVID-19 imppacts on few selected variables for the US, all 50 states and the District of
 Columbia, and the 15 largest metropolitan statistical areas (MSAs). The output
 data files of this repo power Urban's interactive [Tracking COVID-19’s Effects by
-Race and Ethnicity: Phase 2](https://www.urban.org/features/tracking-covid-19s-effects-race-and-ethnicity-phase-two) data feature visualizing impacts of COVID-19 on US adults and
+Race and Ethnicity: Questionnaire Two](https://www.urban.org/features/tracking-covid-19s-effects-race-and-ethnicity-phase-two) data feature visualizing impacts of COVID-19 on US adults and
 their households by geography and race/ethnicity. You can view the code for
 creating the web application at this Github repo.
 
