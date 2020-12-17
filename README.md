@@ -16,7 +16,7 @@ their households by geography and race/ethnicity. You can view the code for
 creating the web application at this Github repo.
 
 The output data (and data dictionaries) can also be accessed and downloaded on
-the [Urban Data Catalog](https://datacatalog.urban.org/dataset/census-pulse-public-use-files-phase-2).
+the [Urban Data Catalog](https://datacatalog.urban.org/dataset/census-pulse-public-use-files-questionnaire-two).
 
 These numbers are estimates and may not equal the actual totals in each
 geography. We highly recommend interpreting these results as *relative impacts
