@@ -504,14 +504,15 @@ week_crosswalk <- tibble::tribble(
   "wk15", paste("9/16\u2013", "28", sep = ""),
   "wk16", paste("9/30\u2013", "10/12", sep = ""),
   "wk17", paste("10/14\u2013", "26", sep = ""),
-  "wk18", paste("10/28\u2013", "11/9", sep = "")
+  "wk18", paste("10/28\u2013", "11/9", sep = ""),
+  "wk19", paste("11/11\u2013", "23", sep = "")
   
 )
 
 data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
   arrange(metric, race_var, geography,
           factor(week_num, 
-                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18")))
+                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",  "wk19")))
 
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)

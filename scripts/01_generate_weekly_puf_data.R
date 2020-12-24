@@ -62,17 +62,11 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 
   }
   
-  # Unzip PUF, data dictionary files, and repweight file
+  #Note: data dictionaries change naming conventions within phase 2 due to December
+  # update, we accordingly default to extracting all files without names
   unzip(str_glue("data/raw-data/public_use_files/week_{week_num_padded}.zip"),
-    exdir = "data/raw-data/public_use_files",
-    # extract PUF file and data dictionary
-    files = c(
-      str_glue("pulse2020_puf_{week_num_padded}.csv"),
-      str_glue("pulse2020_data.dictionary_CSV_{week_num_padded}.xlsx"),
-      str_glue("pulse2020_repwgt_puf_{week_num_padded}.csv")
-    )
-  )
-
+        exdir = "data/raw-data/public_use_files")
+  
   # Get MSA FIPS Codes for appending later
   fips_msa_url <- "https://query.data.world/s/vn4chhniqhslgt5fpb7swxbkcsq3oj"
   GET(fips_msa_url, write_disk(tf <- tempfile(fileext = ".xls")))
@@ -484,7 +478,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 18
+CUR_WEEK <- 19
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
