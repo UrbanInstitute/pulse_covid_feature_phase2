@@ -97,9 +97,9 @@ readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
 }
 
 readin_food_data <- function(sheet, filepath, skip = 5) {
-  # Specific cleaning function for table food2b, or food insecurity.All the
-  # inputs to this fxn should be automatically selected by the wrapper function
-  # and should NOT have to be manually entered.
+  # Specific cleaning function for table food2b (food2 starting week 22), or food 
+  # insecurity. All the inputs to this fxn should be automatically selected by
+  # the wrapper function and should NOT have to be manually entered.
   #
   # INPUTS:
   #   sheet (chr): Name of sheet to read in. This usually does NOT
@@ -721,13 +721,18 @@ generate_table_data <- function(table_var, week_num) {
     table_data <- map_df(week_num, generate_table_data, table_var = table_var)
     return(table_data)
   }
+  
+  table_var <- ifelse(week_num > 21 & table_var == "food2b", "food2", table_var)
+  
+  # starting with week 22, food security table is food2 (bc dropped food2a)
+  food_table <- ifelse(week_num > 21, "food2", "food2b")
 
   # Tribble showing Pulse table and thier accompanying cleaning function
   # Need to add to this tribble as we add more tables
   fxn_table_xwalk <- tribble(
     ~table, ~cleaning_fxn, ~metric,
     "employ1", "readin_employ_loss_data", "employment_income_loss",
-    "food2b", "readin_food_data", "food_insecurity",
+    food_table, "readin_food_data", "food_insecurity",
     "housing2a", "readin_conf_pay_mortgage_data", "confidence_paying_mortgage",
     "housing2b", "readin_conf_pay_rent_data", "confidence_paying_rent",
     "housing1b", "readin_rent_caughtup_data", "rent_caughtup",
@@ -743,8 +748,10 @@ generate_table_data <- function(table_var, week_num) {
     filter(table == table_var) %>%
     pull(cleaning_fxn)
 
+  year <- ifelse(week_num > 21, 2021, 2020)
+  
   # Construct data url and downlaod
-  data_url <- str_glue("https://www2.census.gov/programs-surveys/demo/tables/hhp/2020/wk{week_num}/{table_var}_week{week_num}.xlsx")
+  data_url <- str_glue("https://www2.census.gov/programs-surveys/demo/tables/hhp/{year}/wk{week_num}/{table_var}_week{week_num}.xlsx")
   filepath <- str_glue("data/raw-data/{table_var}_wk{week_num}.xlsx")
 
   if (!file.exists(filepath)) {
@@ -810,7 +817,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 21
+CUR_WEEK <- 22
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 
@@ -1105,7 +1112,7 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21"), size = 10, replace = TRUE),
+  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21", "wk22"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics,10, replace = TRUE)
@@ -1283,7 +1290,7 @@ test_against_manual_us <- function(svy = svy_obj, data = us_diff_ses, metric_nam
 random_test_list_manual <- tibble(
   metric_name = sample(metrics, 10, replace = TRUE),
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21"), size = 10, replace = TRUE),
+  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21", "wk22"), size = 10, replace = TRUE),
   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
   geo_name = c(sample(all_states, 7), sample(all_metros, 3)),
   geo_col = c(rep("state", 7), rep("cbsa_title", 3))
@@ -1295,7 +1302,7 @@ se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_
 random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
-   wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21"), size = 10, replace = TRUE),
+   wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21", "wk22"), size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
  )
 

@@ -1,7 +1,7 @@
 bucket_name="ui-census-pulse-survey"
-endweek_padded="21"
+endweek_padded="22"
 
-sudo apt install awscli
+#sudo apt install awscli -y
 aws s3 cp data/intermediate-data/pulse_puf2_all_weeks.csv s3://${bucket_name}/phase2_pulse_puf_most_recent.csv
 aws s3 cp data/raw-data/public_use_files/pulse2020_data.dictionary_CSV_${endweek_padded}.xlsx s3://${bucket_name}/phase2_puf_week_most_recent_data_dictionary.xlsx
 aws s3 cp data/final-data/phase2_all_to_current_week.csv s3://${bucket_name}/phase2_all_to_current_week.csv

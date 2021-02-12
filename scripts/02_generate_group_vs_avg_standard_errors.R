@@ -499,23 +499,23 @@ data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out)
 
 week_crosswalk <- tibble::tribble(
   ~week_num, ~date_int,
-  "wk13", paste("8/19\u2013", "31", sep = ""),
-  "wk14", paste("9/2\u2013", "14", sep = ""),
-  "wk15", paste("9/16\u2013", "28", sep = ""),
-  "wk16", paste("9/30\u2013", "10/12", sep = ""),
-  "wk17", paste("10/14\u2013", "26", sep = ""),
-  "wk18", paste("10/28\u2013", "11/9", sep = ""),
-  "wk19", paste("11/11\u2013", "23", sep = ""),
-  "wk20", paste("11/25\u2013", "12/7", sep = ""),
-  "wk21", paste("12/9\u2013", "21", sep = "")
-  
+  "wk13", paste("8/19/20\u2013", "8/31/20", sep = ""),
+  "wk14", paste("9/2/20\u2013", "9/14/20", sep = ""),
+  "wk15", paste("9/16/20\u2013", "9/28/20", sep = ""),
+  "wk16", paste("9/30/20\u2013", "10/12/20", sep = ""),
+  "wk17", paste("10/14/20\u2013", "10/26/20", sep = ""),
+  "wk18", paste("10/28/20\u2013", "11/9/20", sep = ""),
+  "wk19", paste("11/11/20\u2013", "11/23/20", sep = ""),
+  "wk20", paste("11/25/20\u2013", "12/7/20", sep = ""),
+  "wk21", paste("12/9/20\u2013", "12/21/20", sep = ""),
+  "wk22", paste("1/6/21\u2013", "1/18/21", sep = "")
 )
 
 data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
   arrange(metric, race_var, geography,
           factor(week_num, 
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",  
-                            "wk19", "wk20", "wk21")))
+                            "wk19", "wk20", "wk21", "wk22")))
 
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)

@@ -45,9 +45,12 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   #   This fxn will also write out the raw downlaoded public use files into the data/raw-data directory
 
   week_num_padded <- str_pad(week_num, width = 2, side = "left", pad = "0")
+  
+  # starting in week 22, year changes to 2021
+  year <- ifelse(week_num > 21, 2021, 2020)
 
 
-  puf_url <- str_glue("https://www2.census.gov/programs-surveys/demo/datasets/hhp/2020/wk{week_num}/HPS_Week{week_num_padded}_PUF_CSV.zip")
+  puf_url <- str_glue("https://www2.census.gov/programs-surveys/demo/datasets/hhp/{year}/wk{week_num}/HPS_Week{week_num_padded}_PUF_CSV.zip")
 
   # Create public_use_files directory if it doesn't exist
   dir.create("data/raw-data/public_use_files/", showWarnings = F)
@@ -76,8 +79,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
     distinct(.keep_all = TRUE)
 
   ### Read in PUF file and weights file
-  puf_filepath <- str_glue("{output_filepath}pulse2020_puf_{week_num_padded}.csv")
-  rep_wt_filepath <- str_glue("{output_filepath}pulse2020_repwgt_puf_{week_num_padded}.csv")
+  puf_filepath <- str_glue("{output_filepath}pulse{year}_puf_{week_num_padded}.csv")
+  rep_wt_filepath <- str_glue("{output_filepath}pulse{year}_repwgt_puf_{week_num_padded}.csv")
   df <- read_csv(puf_filepath)
   rep_wt <- read_csv(rep_wt_filepath) %>%
     janitor::clean_names()
@@ -478,7 +481,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 21
+CUR_WEEK <- 22
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
