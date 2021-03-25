@@ -8,6 +8,7 @@ library(tidyverse)
 library(httr)
 library(here)
 library(janitor)
+options(timeout = 200)
 
 download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-data/public_use_files/") {
   # Function to download in Pulse Public Use File for a given week, and add:
@@ -61,6 +62,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
                   destfile = str_glue("data/raw-data/public_use_files/week_{week_num_padded}.zip"),
                   # By default uses winnet method which is for some reason very slow
                   method = "libcurl"
+                  
     )
 
   }
@@ -481,7 +483,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 24
+CUR_WEEK <- 25
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
