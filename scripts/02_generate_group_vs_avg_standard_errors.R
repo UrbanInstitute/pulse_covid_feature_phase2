@@ -9,33 +9,34 @@ library(fastDummies)
 library(parallel)
 library(future)
 library(furrr)
+library(aws.s3)
+library(data.table)
 
-start_all <- Sys.time()
-# metrics <- c(
-#   "uninsured",
-#   "insured_public",
-#   "inc_loss",
-#   "expect_inc_loss",
-#   "rent_not_conf",
-#   "mortgage_not_conf",
-#   "food_insufficient",
-#   "depression_anxiety_signs",
-#   "spend_credit", 
-#   "spend_ui", 
-#   "spend_stimulus", 
-#   "spend_savings",
-#   "spend_snap",
-#   "rent_caughtup",
-#   "mortgage_caughtup",
-#   "eviction_risk",
-#   "foreclosure_risk",
-#   "telework",
-#   "mentalhealth_unmet",
-#   "learning_fewer",
-#   "expense_dif"
-# )
+#start_all <- Sys.time()
+metrics <- c(
+  "uninsured",
+  "insured_public",
+  "inc_loss",
+  "expect_inc_loss",
+  "rent_not_conf",
+  "mortgage_not_conf",
+  "food_insufficient",
+  "depression_anxiety_signs",
+  "spend_credit",
+  "spend_ui",
+  "spend_stimulus",
+  "spend_savings",
+  "spend_snap",
+  "rent_caughtup",
+  "mortgage_caughtup",
+  "eviction_risk",
+  "foreclosure_risk",
+  "telework",
+  "mentalhealth_unmet",
+  "learning_fewer",
+  "expense_dif"
+)
 
-metrics <- c("telework")
 other_cols <- c(
   "cbsa_title",
   "state",
@@ -46,7 +47,13 @@ other_cols <- c(
 all_cols <- c(metrics, other_cols)
 
 ##  Read in and clean data
-puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
+# puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
+#   mutate(spend_credit = as.numeric(spend_credit),
+#          spend_savings = as.numeric(spend_savings),
+#          spend_stimulus = as.numeric(spend_stimulus),
+#          spend_ui = as.numeric(spend_ui))
+
+puf_all_weeks <- s3read_using(fread, object = "pulse_puf2_week_13_to_28.csv", bucket = "ui-census-pulse-survey") %>%
   mutate(spend_credit = as.numeric(spend_credit),
          spend_savings = as.numeric(spend_savings),
          spend_stimulus = as.numeric(spend_stimulus),
@@ -57,17 +64,20 @@ CUR_WEEK <- puf_all_weeks %>%
   pull(week_x) %>%
   max()
 
+puf_all_weeks <- puf_all_weeks %>%
+  mutate(tbirth_year = as.numeric(tbirth_year))
+
 
 puf_all_weeks2 <- puf_all_weeks %>%
   # For the uninsured variable, we filter out people over 65 from the denominator
   mutate(
     insured_public = case_when(
       tbirth_year < 1956 ~ NA_real_,
-      TRUE ~ insured_public
+      TRUE ~ as.numeric(insured_public)
     ),
     uninsured = case_when(
       tbirth_year < 1956 ~ NA_real_,
-      TRUE ~ uninsured
+      TRUE ~ as.numeric(uninsured)
     )
   ) %>%
   select(starts_with("pweight"), all_cols) %>%
@@ -126,7 +136,7 @@ all_list <- c(state_list, cbsa_list)
 all_week_list <- puf_all_weeks2_total %>%
   split(puf_all_weeks2_total$week_num)
 
-get_se_diff_total <- function(..., svy = svy_all) {
+get_se_diff_total <- function(..., svy) {
   # if race indicator is total, then we compute mean of the geography,
   # and compare it to the mean of national estimates
   dots <- list(...)
@@ -188,7 +198,7 @@ get_se_diff_total <- function(..., svy = svy_all) {
   )
 }
 
-get_se_diff <- function(..., svy = svy_all) {
+get_se_diff <- function(..., svy) {
   # Function to calculate all means/SEs and mean/SEs of the difference between
   # racial group mean and all other racial group mean for a given geography/race/
   # metric/week combinations (except US, which is handled separately)
@@ -318,8 +328,6 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, df) {
     pull(geography) %>%
     unique() %>%
     na.omit()
-  
-  print(geos)
   
   geo_type <- svy %>%
     pull(geo_type) %>%
@@ -527,7 +535,7 @@ race_indicators <- c("black", "asian", "hispanic", "white", "other")
 
 #This should be run on a reasonably large machine like a c5.2 instance
 start <- Sys.time()
-plan(multisession, workers = 16)
+plan(multisession, workers = parallel::detectCores() - 2)
 all_diff_ses <- future_map_dfr(all_list, 
                                ~generate_se_state_and_cbsas(metrics = metrics,
                                                             race_indicators = race_indicators,
@@ -537,6 +545,7 @@ print(end - start)
 
 start <- Sys.time()
 #plan(sequential)
+plan(multisession, workers = CUR_WEEK)
 all_diff_ses_total <- future_map_dfr(all_week_list, 
                                ~generate_se_state_and_cbsas_total(metrics = metrics,
                                                             df = .x))
