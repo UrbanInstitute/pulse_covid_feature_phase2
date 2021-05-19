@@ -11,30 +11,31 @@ library(future)
 library(furrr)
 
 start_all <- Sys.time()
-metrics <- c(
-  "uninsured",
-  "insured_public",
-  "inc_loss",
-  "expect_inc_loss",
-  "rent_not_conf",
-  "mortgage_not_conf",
-  "food_insufficient",
-  "depression_anxiety_signs",
-  "spend_credit", 
-  "spend_ui", 
-  "spend_stimulus", 
-  "spend_savings",
-  "spend_snap",
-  "rent_caughtup",
-  "mortgage_caughtup",
-  "eviction_risk",
-  "foreclosure_risk",
-  "telework",
-  "mentalhealth_unmet",
-  "learning_fewer",
-  "expense_dif"
-)
+# metrics <- c(
+#   "uninsured",
+#   "insured_public",
+#   "inc_loss",
+#   "expect_inc_loss",
+#   "rent_not_conf",
+#   "mortgage_not_conf",
+#   "food_insufficient",
+#   "depression_anxiety_signs",
+#   "spend_credit", 
+#   "spend_ui", 
+#   "spend_stimulus", 
+#   "spend_savings",
+#   "spend_snap",
+#   "rent_caughtup",
+#   "mortgage_caughtup",
+#   "eviction_risk",
+#   "foreclosure_risk",
+#   "telework",
+#   "mentalhealth_unmet",
+#   "learning_fewer",
+#   "expense_dif"
+# )
 
+metrics <- c("telework")
 other_cols <- c(
   "cbsa_title",
   "state",
@@ -113,12 +114,12 @@ svy_all <- puf_all_weeks2 %>%
 state_list <- puf_all_weeks2 %>%
   mutate(geography = state,
          geo_type = "state") %>%
-  split(puf_all_weeks2$state)
+  split(list(puf_all_weeks2$state, puf_all_weeks2$week_num))
 
 cbsa_list <- puf_all_weeks2 %>%
   mutate(geography = cbsa_title,
          geo_type = "msa") %>%
-  split(puf_all_weeks2$cbsa_title)
+  split(list(puf_all_weeks2$cbsa_title, puf_all_weeks2$week_num))
 
 all_list <- c(state_list, cbsa_list)
 
@@ -213,8 +214,7 @@ get_se_diff <- function(..., svy = svy_all) {
     {
       # Use svyby to compute mean (and replicate means) for race and non race var population
       # (ie black and nonblack population)
-      x <- svyby(metric_formula, race_formula, svy %>%
-        srvyr::filter(week_num == dots$week),
+      x <- svyby(metric_formula, race_formula, svy,
       svymean,
       na.rm = T,
       return.replicates = T,
@@ -309,12 +309,12 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, df) {
   # # crosswalk between geography names and geography dummy column names
   # geo_xwalk <- tibble(geography = geography, geo_col = geo_cols)
   
-  wks <- svy %>%
+  wk <- svy %>%
     pull(week_num) %>%
     unique() %>%
     na.omit()
   
-  geos <- svy %>%
+  geo <- svy %>%
     pull(geography) %>%
     unique() %>%
     na.omit()
@@ -326,11 +326,10 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, df) {
     unique() %>%
     na.omit()
 
-  # Create grid of all metric/race/geo/week combos
+  # Create grid of all metric/race combos for the geo/week dataframe
   full_combo <- expand_grid(
     metric = metrics,
-    race_indicator = race_indicators,
-    week = wks
+    race_indicator = race_indicators
   ) 
 
    #for testing (as running on all combinations takes up too much RAM)
@@ -343,7 +342,8 @@ generate_se_state_and_cbsas <- function(metrics, race_indicators, df) {
   full_combo_appended <- full_combo %>%
     bind_cols(se_info) %>%
     mutate(geo_type = geo_type,
-           geography = geos)
+           geography = geo,
+           week_num = wk)
 
   return(full_combo_appended)
 }
@@ -498,7 +498,7 @@ generate_se_us <- function(metrics, race_indicators, svy = svy_all) {
     unique() %>%
     na.omit()
 
-  race_indicators <- race_indicators[-6]
+  #race_indicators <- race_indicators[-6]
 
   full_combo <- expand_grid(
     metric = metrics,
@@ -527,7 +527,7 @@ race_indicators <- c("black", "asian", "hispanic", "white", "other")
 
 #This should be run on a reasonably large machine like a c5.2 instance
 start <- Sys.time()
-plan(multisession, workers = parallel::detectCores() - 2)
+plan(multisession, workers = 16)
 all_diff_ses <- future_map_dfr(all_list, 
                                ~generate_se_state_and_cbsas(metrics = metrics,
                                                             race_indicators = race_indicators,
@@ -536,8 +536,8 @@ end <- Sys.time()
 print(end - start)
 
 start <- Sys.time()
-plan(sequential)
-all_diff_ses_total <- map_dfr(all_week_list, 
+#plan(sequential)
+all_diff_ses_total <- future_map_dfr(all_week_list, 
                                ~generate_se_state_and_cbsas_total(metrics = metrics,
                                                             df = .x))
 end <- Sys.time()
@@ -623,35 +623,36 @@ us_diff_ses_out <- us_diff_ses %>%
 
 data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out)
 
-# week_crosswalk <- tibble::tribble(
-#   ~week_num, ~date_int,
-#   "wk13", paste("8/19/20\u2013", "8/31/20", sep = ""),
-#   "wk14", paste("9/2/20\u2013", "9/14/20", sep = ""),
-#   "wk15", paste("9/16/20\u2013", "9/28/20", sep = ""),
-#   "wk16", paste("9/30/20\u2013", "10/12/20", sep = ""),
-#   "wk17", paste("10/14/20\u2013", "10/26/20", sep = ""),
-#   "wk18", paste("10/28/20\u2013", "11/9/20", sep = ""),
-#   "wk19", paste("11/11/20\u2013", "11/23/20", sep = ""),
-#   "wk20", paste("11/25/20\u2013", "12/7/20", sep = ""),
-#   "wk21", paste("12/9/20\u2013", "12/21/20", sep = ""),
-#   "wk22", paste("1/6/21\u2013", "1/18/21", sep = ""),
-#   "wk23", paste("1/20/21\u2013", "2/1/21", sep = ""),
-#   "wk24", paste("2/3/21\u2013", "2/15/21", sep = ""),
-#   "wk25", paste("2/17/21\u2013", "3/1/21", sep = ""),
-#   "wk26", paste("3/3/21\u2013", "3/15/21", sep = ""),
-#   "wk27", paste("3/17/21\u2013", "3/29/21", sep = "")
-# )
-# 
-# data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
-#   arrange(metric, race_var, geography,
-#           factor(week_num, 
-#                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",  
-#                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24", 
-#                             "wk25", "wk26",  "wk27")))
+week_crosswalk <- tibble::tribble(
+  ~week_num, ~date_int,
+  "wk13", paste("8/19/20\u2013", "8/31/20", sep = ""),
+  "wk14", paste("9/2/20\u2013", "9/14/20", sep = ""),
+  "wk15", paste("9/16/20\u2013", "9/28/20", sep = ""),
+  "wk16", paste("9/30/20\u2013", "10/12/20", sep = ""),
+  "wk17", paste("10/14/20\u2013", "10/26/20", sep = ""),
+  "wk18", paste("10/28/20\u2013", "11/9/20", sep = ""),
+  "wk19", paste("11/11/20\u2013", "11/23/20", sep = ""),
+  "wk20", paste("11/25/20\u2013", "12/7/20", sep = ""),
+  "wk21", paste("12/9/20\u2013", "12/21/20", sep = ""),
+  "wk22", paste("1/6/21\u2013", "1/18/21", sep = ""),
+  "wk23", paste("1/20/21\u2013", "2/1/21", sep = ""),
+  "wk24", paste("2/3/21\u2013", "2/15/21", sep = ""),
+  "wk25", paste("2/17/21\u2013", "3/1/21", sep = ""),
+  "wk26", paste("3/3/21\u2013", "3/15/21", sep = ""),
+  "wk27", paste("3/17/21\u2013", "3/29/21", sep = ""),
+  "wk28", paste("4/14/21\u2013", "4/26/21", sep = "")
+)
+
+data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
+  arrange(metric, race_var, geography,
+          factor(week_num,
+                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
+                            "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
+                            "wk25", "wk26",  "wk27", "wk28")))
 
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)
 
-write_csv(data_all, here("data/final-data", "phase2_all_to_current_week.csv"))
+write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 end_all <- Sys.time()
 print(end_all - start_all)

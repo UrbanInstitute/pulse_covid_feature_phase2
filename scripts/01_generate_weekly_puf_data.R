@@ -100,6 +100,13 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
              spndsrc7 = NA_real_)
   }  
 
+  if (week_num > 27) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV) %>%
+      mutate(tw_start = NA_real_,
+             tch_hrs = NA_real_)
+  }
+  
 
   df_clean <- df %>%
     janitor::clean_names() %>%
@@ -312,7 +319,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
                                    forclose %in% c(3, 4) ~ 0,
                                    TRUE ~ NA_real_
       ),
-      #dummy for Proportion of adults with children in school who spend fewer 
+      #dummy for Proportion of adults with children in school who spend fewer
       #hours on learning activities in the past 7 days relative to before the pandemic
       learning_fewer= case_when(tch_hrs %in% c(1, 2) ~ 1,
                                 tch_hrs >= 3 ~ 0,
@@ -410,7 +417,7 @@ calculate_response_rate_metrics <- function(df_clean) {
     "spend_stimulus", 
     "spend_savings",
     "spend_snap",
-    "telework",
+    #"telework",
     "mentalhealth_unmet",
     "expense_dif"
   )
@@ -419,7 +426,7 @@ calculate_response_rate_metrics <- function(df_clean) {
     mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
            # used to approximate response rate for rent_not_conf, mortgage_not_conf, rent_caughtup,
            #   mortgage_caughtup, eviction_risk, foreclosure_risk
-           answered_tenure = if_else(tenure > 0, 1, 0),
+           answered_tenure = if_else(tenure > 0, 1, 0))
            # used to approximate response rate for learning_fewer
            # the rr for enroll is very low because many respondents without
            # school age kids may skip this question. Some that didn't answer this
@@ -431,8 +438,8 @@ calculate_response_rate_metrics <- function(df_clean) {
            # they have a member of the household over 18 in school, or to answer "no" (enroll3 == 1).
            # Because households without children are in the universe of respondents, we decide to keep them
            # in the denominator for purposes of response rate, but recognize that this is an imperfect metric.
-           answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
-                                       TRUE ~ 0)) 
+           # answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
+           #                             TRUE ~ 0)) 
   
 
   # This calculates the racial breakdown of people who answered each of the
@@ -483,7 +490,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 27
+CUR_WEEK <- 28
 week_vec <- c(13:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
