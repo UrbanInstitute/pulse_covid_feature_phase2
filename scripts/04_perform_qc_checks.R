@@ -15,7 +15,7 @@ library(srvyr)
 ### ----------Read in cleaned data from disk -------------------------
 
 
-data_all <- read_csv(here("data/final-data", "phase2_all_to_current_week.csv"))
+data_all <- read_csv(here("data/final-data", "phase2_all_to_current_week_feature.csv"))
 
 all_diff_ses <- read_csv(here("data/intermediate-data", "all_diff_ses.csv"))
 
@@ -817,9 +817,10 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 27
+CUR_WEEK <- 28
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
+week_num_tw <- 13:27
 
 
 test_within_0.001 <- function(vec1, vec2) {
@@ -1001,7 +1002,7 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_al
 }
 
 
-check_telework_start_numbers <- function(tables = "transport1", point_df = data_all, wknum = week_num) {
+check_telework_start_numbers <- function(tables = "transport1", point_df = data_all, wknum = week_num_tw) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
@@ -1045,7 +1046,7 @@ check_rent_caughtup_numbers()
 check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_obj) {
   sd_calcs <- se_df %>%
     filter(
-      week == wk_num,
+      week_num == wk_num,
       geography == geo,
       race_indicator == race_ind,
       metric == metr
@@ -1113,11 +1114,12 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
 random_test_list <- tibble(
   # replace with last two weeks
   wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21", 
-                    "wk22", "wk23", "wk24", "wk25", "wk26", "wk27"), size = 10, replace = TRUE),
+                    "wk22", "wk23", "wk24", "wk25", "wk26", "wk27", "wk28"), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics,10, replace = TRUE)
-)
+) %>%
+  filter(!((wk_num %in% c("wk28")) & (metr %in% c("telework", "learning_fewer"))))
 
 se_glm_test_results <- random_test_list %>% pmap_lgl(check_glm_se_match)
 
@@ -1191,7 +1193,7 @@ test_against_manual <- function(svy = svy_obj, data = all_diff_ses, metric_name,
   tstat_race_total <- mean_race_total / se_race_total
 
   ra_stats <- data %>%
-    filter(week == wk_num) %>%
+    filter(week_num == wk_num) %>%
     filter(race_indicator == race_name) %>%
     filter(metric == metric_name) %>%
     filter(geography == geo_name) %>%
@@ -1292,11 +1294,12 @@ random_test_list_manual <- tibble(
   metric_name = sample(metrics, 10, replace = TRUE),
   # replace with last two weeks
   wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", 
-                    "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27"), size = 10, replace = TRUE),
+                    "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27", "wk28"), size = 10, replace = TRUE),
   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
   geo_name = c(sample(all_states, 7), sample(all_metros, 3)),
   geo_col = c(rep("state", 7), rep("cbsa_title", 3))
-)
+) %>%
+  filter(!((wk_num %in% c("wk28")) & (metric_name %in% c("telework", "learning_fewer"))))
 
 # Test manual calculations for specific geographies and all US
 se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_manual)
@@ -1305,8 +1308,9 @@ random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
    wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", 
-                     "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27"), size = 10, replace = TRUE),
+                     "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27", "wk28"), size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
- )
+ ) %>%
+  filter(!((wk_num %in% c("wk28")) & (metric_name %in% c("telework", "learning_fewer"))))
 
 se_manual_calc_test_us_results = random_test_list_us %>% pmap_df(test_against_manual_us)

@@ -417,7 +417,7 @@ calculate_response_rate_metrics <- function(df_clean) {
     "spend_stimulus", 
     "spend_savings",
     "spend_snap",
-    #"telework",
+    "telework",
     "mentalhealth_unmet",
     "expense_dif"
   )
@@ -502,6 +502,15 @@ rr_out <- metric_list[[1]]
 job_loss_out <- metric_list[[2]]
 prop_resp_race_out <- metric_list[[3]]
 
+# split inc_loss variable to reflect change in the survey question beginning
+# in week 28 (see data dictionary for details)
+puf_all_weeks <- puf_all_weeks %>%
+  mutate(inc_loss_rv = case_when(week_x >= 28 ~ as.numeric(inc_loss),
+                                  TRUE ~ NA_real_),
+         inc_loss = case_when(week_x >= 28 ~ NA_real_,
+                               TRUE ~ as.numeric(inc_loss))
+  )
+
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
 
@@ -521,7 +530,8 @@ appended_column_data_dictionary <-
     "hisp_rrace", "Combination of Hispanic and Race column. Groups respondents into the following categories: Hispanic, White non Hispanic, Black non Hispanic, Asian non Hispanic, and Other race/two or more races",
     "uninsured", "Indicator variable for if a respondent is uninsured. This is 1 if the respondent reported that they have none of the available insurnace ooptions or only have insurance through the Indian Health Service. It is 0 if the respondents have some type of health insurance (excluding the Indian Health service)",
     "insured_public", "Indicator variable for if a respondent has public insurance. This is 1 if the respondent reported thaty had Medicare, Medicaid, or VA Health Insurance",
-    "inc_loss", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income since March 13, 2020. This is essentially a recoding of the wrkloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0",
+    "inc_loss", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income since March 13, 2020. This is essentially a recoding of the wrkloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. This question was changed in the survey instrument with the beginning of phase 3.1. Values will be NA for week 28 onward. We do not recommend that users of this data compare the inc_loss and inc_loss_rv variables.",
+    "inc_loss_rv", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income in the last four weeks. This is essentially a recoding of the wrklossrv variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. This question was introduced in the survey instrument with the beginning of phase 3.1. Values will be NA for prior to week 28. We do not recommend that users of this data compare the inc_loss and inc_loss_rv variables.",
     "expect_inc_loss", "Indicator variable for if a respondent (or anyone in their household) expects to experience a loss in employment income in the next 4 weeks due to the coronavirus. this is essentially a recoding of the expctloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0",
     "payment_not_conf", "Indicator variable for if a respondent has little or no confidence in paying rent/mortgage next month or has already deferred payment for next months rent/mortgage. Note this excludes people who oen their homes free and clear or occupy thier house without payment of rent. They are coded as 1 if mortconf is  1,2 or ; s 0 if mortconf is 3 or 4; and NA otherwise",
     "rent_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier rent next month or has already deferred. This is a limited to renters (ie tenure ==3)",
@@ -541,11 +551,11 @@ appended_column_data_dictionary <-
     "depression_signs", "Indicator variable for if the respondent is showing signs of major depressive disroder. This is coded as 1 if the sum of down_score and interest_score is >= 3.  Respondents with missing responses to both questions are coded as NA and 0 otherwise",
     "depression_anxiety_signs", " Indicator variable if the respondent is showing either signs of major depressive disorder or generalized anxiety disorder. Respondents with missing responses to both anxiety_signs and depression_signs are coded as NA",
     "expense_dif", "Indicator variable for if a respondent reported difficulty for their household to pay for usual household expense n the last 7 days ",
-    "telework", "Indicator variable for if at least one adult in this household substitutes some or all of their typical in-person work for telework because of the coronavirus pandemic",
+    "telework", "Indicator variable for if at least one adult in this household substitutes some or all of their typical in-person work for telework because of the coronavirus pandemic. Question only asked through week 27. Value will be NA for week 28 onward.",
     "metalhealth_unmet", "Indicator variable for if respondent needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason",
     "eviction_risk", "Indicator variable for if the household will very likely or extremely likely have to leave this home or apartment within the next two months because of eviction. ",
     "foreclosure_risk", "Indicator variable for if the houeshold will very likely or extremely likely have to leave this home within the next two months because of foreclosure",
-    "learning_fewer", "Indicator variable for if the student(s) in the household spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
+    "learning_fewer", "Indicator variable for if the student(s) in the household spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days. Question only asked through week 27. Value will be NA for week 28 onward.",
     "spend_snap", "Indicator variable for if household members are using SNAP to meet their spending needs in the past 7 days",
     "week_num", "The week number that the survey data is from",
     "state", "2 digit abbrevation of the state that respondents are from",
@@ -568,7 +578,7 @@ rr_metrics_data_dictionary <-
     "hisp_rrace", "Combination of Hispanic and Race column. Groups respondents into the following categories: Hispanic, White non Hispanic, Black non Hispanic, Asian non Hispanic, and Other race/two or more races",
     "answered_uninsured", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for uninsured metric",
     "answered_insured_public", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for insured_public metric",
-    "answered_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for inc_loss metric",
+    "answered_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for inc_loss and inc_loss_rv metric",
     "answered_expect_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for expect_inc_loss metric",
     "answered_food_insufficient", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for food_insufficient metric",
     "answered_spend_savings", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_savings metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
@@ -581,7 +591,7 @@ rr_metrics_data_dictionary <-
     "answered_metalhealth_unmet", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for mentalhealth_unmet metric",
     "answered_spend_snap", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_snap metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
     "answered_tenure", "Proportion of total respondents (overall and by race/ethnicity) that answered tenure question. Used as proxy for housing variable response rate because tenure question determines eligibility for housing questions.",
-    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children under 18 (some of whom answer the question).",
+    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children under 18 (some of whom answer the question). Question only asked through week 27. Value will be NA for week 28 onward.",
     "week_num", "The week number that the survey data is from"
   )
 

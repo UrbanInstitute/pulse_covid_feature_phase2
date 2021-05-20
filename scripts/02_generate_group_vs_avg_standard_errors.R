@@ -12,7 +12,7 @@ library(furrr)
 library(aws.s3)
 library(data.table)
 
-#start_all <- Sys.time()
+start_all <- Sys.time()
 metrics <- c(
   "uninsured",
   "insured_public",
@@ -47,17 +47,14 @@ other_cols <- c(
 all_cols <- c(metrics, other_cols)
 
 ##  Read in and clean data
-# puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
-#   mutate(spend_credit = as.numeric(spend_credit),
-#          spend_savings = as.numeric(spend_savings),
-#          spend_stimulus = as.numeric(spend_stimulus),
-#          spend_ui = as.numeric(spend_ui))
-
-puf_all_weeks <- s3read_using(fread, object = "pulse_puf2_week_13_to_28.csv", bucket = "ui-census-pulse-survey") %>%
+puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
   mutate(spend_credit = as.numeric(spend_credit),
          spend_savings = as.numeric(spend_savings),
          spend_stimulus = as.numeric(spend_stimulus),
-         spend_ui = as.numeric(spend_ui))
+         spend_ui = as.numeric(spend_ui)) %>%
+#create combined inc_loss variable for efficient processing
+mutate(inc_loss <- case_when(week_x >= 28 ~ inc_loss_rv,
+                             TRUE ~ inc_loss))
                           
 # Set parameters
 CUR_WEEK <- puf_all_weeks %>%
@@ -444,48 +441,63 @@ get_se_diff_us <- function(..., svy = svy_all) {
 
   metric_formula <- as.formula(paste0("~", dots$metric))
   race_formula <- as.formula(paste0("~", dots$race_indicator))
-
-  x <- svyby(metric_formula, race_formula, svy %>%
-    srvyr::filter(week_num == dots$week),
-  svymean,
-  na.rm = T,
-  return.replicates = T,
-  covmat = T
-  )
-
-  mean <- x %>%
-    filter(!!sym(dots$race_indicator) == 1) %>%
-    pull(!!sym(dots$metric))
-  se <- x %>%
-    filter(!!sym(dots$race_indicator) == 1) %>%
-    pull(se) * 2
-  other_mean <- x %>%
-    filter(!!sym(dots$race_indicator) == 0) %>%
-    pull(!!sym(dots$metric))
-  other_se <- x %>%
-    filter(!!sym(dots$race_indicator) == 0) %>%
-    pull(se)
-
-  # Use svycontrast to calulate se bw race and nonrace (ie black and non black) population
-  contrast <- svycontrast(x, contrasts = list(diff = c(1, -1)))
-  diff_mean <- contrast %>% as.numeric()
-  diff_se <- contrast %>%
-    attr("var") %>%
-    sqrt() %>%
+  
+  result <- tryCatch(
     {
-      . * 2
+      x <- svyby(metric_formula, race_formula, svy %>%
+      srvyr::filter(week_num == dots$week),
+    svymean,
+    na.rm = T,
+    return.replicates = T,
+    covmat = T
+    )
+  
+    mean <- x %>%
+      filter(!!sym(dots$race_indicator) == 1) %>%
+      pull(!!sym(dots$metric))
+    se <- x %>%
+      filter(!!sym(dots$race_indicator) == 1) %>%
+      pull(se) * 2
+    other_mean <- x %>%
+      filter(!!sym(dots$race_indicator) == 0) %>%
+      pull(!!sym(dots$metric))
+    other_se <- x %>%
+      filter(!!sym(dots$race_indicator) == 0) %>%
+      pull(se)
+  
+    # Use svycontrast to calulate se bw race and nonrace (ie black and non black) population
+    contrast <- svycontrast(x, contrasts = list(diff = c(1, -1)))
+    diff_mean <- contrast %>% as.numeric()
+    diff_se <- contrast %>%
+      attr("var") %>%
+      sqrt() %>%
+      {
+        . * 2
+      }
+  
+    result <- tibble(
+      mean = mean,
+      se = se,
+      other_mean = other_mean,
+      other_se = other_se,
+      diff_mean = diff_mean,
+      diff_se = diff_se
+    )},
+    error = function(err) {
+      # handle case where all NA responses for a given metric/geo/week/race
+      data <- tibble(
+        mean = NA,
+        se = 0,
+        other_mean = NA,
+        other_se = 0,
+        diff_mean = 0,
+        diff_se = 0
+      )
+      return(data)
     }
-
-  result <- tibble(
-    mean = mean,
-    se = se,
-    other_mean = other_mean,
-    other_se = other_se,
-    diff_mean = diff_mean,
-    diff_se = diff_se
   )
-
   return(result)
+
 }
 
 generate_se_us <- function(metrics, race_indicators, svy = svy_all) {
@@ -544,9 +556,9 @@ end <- Sys.time()
 print(end - start)
 
 start <- Sys.time()
-#plan(sequential)
-plan(multisession, workers = CUR_WEEK)
-all_diff_ses_total <- future_map_dfr(all_week_list, 
+plan(sequential)
+#plan(multisession, workers = CUR_WEEK)
+all_diff_ses_total <- map_dfr(all_week_list, 
                                ~generate_se_state_and_cbsas_total(metrics = metrics,
                                                             df = .x))
 end <- Sys.time()
@@ -566,19 +578,39 @@ write.csv(us_diff_ses, here("data/intermediate-data", "us_diff_ses.csv"))
 # functions to calculate US total means/SEs
 calculate_se_us_total <- function(metric, svy) {
   se_df <- svy %>%
+    mutate(week_num = factor(week_num)) %>%
     srvyr::filter(!is.na(!!sym(metric))) %>%
-    group_by(week_num) %>%
-    summarise(mean = survey_mean(!!sym(metric), na.rm = TRUE)) %>%
-    # pull(out) %>%
-    mutate(
-      se = mean_se * 2,
+    group_by(week_num, .drop = FALSE) 
+  
+  result <- tryCatch({
+    result <- se_df %>%
+      summarise(mean = survey_mean(!!sym(metric), na.rm = TRUE)) %>%
+      # pull(out) %>%
+      mutate(
+        se = mean_se * 2,
+        metric = metric,
+        geography = "US",
+        race_var = "total"
+      ) %>%
+      select(week_num, geography, race_var, mean, se, metric)
+    
+  }, error = function(err){
+    data <- tibble(
+      week_num = factor(week_num),
+      mean = NA,
+      se = 0,
       metric = metric,
       geography = "US",
       race_var = "total"
-    ) %>%
-    select(week_num, geography, race_var, mean, se, metric)
+      ) %>%
+      select(week_num, geography, race_var, mean, se, metric)
+    
+    return(data)
+    } 
+  )
+    
 
-  return(se_df)
+  return(result)
 }
 
 format_feature_total <- function(data, geo) {
@@ -611,8 +643,7 @@ all_diff_ses_out <- all_diff_ses %>%
     sigdiff = ifelse(abs(diff_mean / diff_se) > 1.96, 1, 0)
   ) %>%
   rename(
-    race_var = race_indicator,
-    week_num = week
+    race_var = race_indicator
   ) %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
@@ -652,16 +683,47 @@ week_crosswalk <- tibble::tribble(
   "wk28", paste("4/14/21\u2013", "4/26/21", sep = "")
 )
 
-data_out <- left_join(data_all, week_crosswalk, by = "week_num") %>%
+# create data for feature with combined inc_loss and inc_loss_rv metric
+data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
   arrange(metric, race_var, geography,
           factor(week_num,
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28")))
 
+
+# create data for catalog splitting inc_loss and inc_loss_rv
+
+phase_3_1 <- c("wk28")
+inc_loss_rv <- data_out_feature %>%
+  filter(metric == "inc_loss") %>%
+  mutate(mean = if_else(week_num %in% inc_loss_rv_wks, mean, NA_real_ ),
+         se = if_else(week_num %in% inc_loss_rv_wks, se, 0 ),
+         moe_95 = if_else(week_num %in% inc_loss_rv_wks, moe_95, 0),
+         moe_95_lb = if_else(week_num %in% inc_loss_rv_wks, moe_95_lb, NA_real_ ),
+         moe_95_ub = if_else(week_num %in% inc_loss_rv_wks, moe_95_ub, NA_real_ ),
+         sigdiff= if_else(week_num %in% inc_loss_rv_wks, sigdiff, NA_real_ ),
+         metric = "inc_loss_rv")
+
+data_out <- rbind(data_out_feature, inc_loss_rv) %>%
+  mutate(mean = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), mean, NA_real_ ),
+         se = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), se, 0 ),
+         moe_95 = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), moe_95, 0),
+         moe_95_lb = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), moe_95_lb, NA_real_ ),
+         moe_95_ub = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), moe_95_ub, NA_real_ ),
+         sigdiff= if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), sigdiff, NA_real_ ),
+         var_removed = case_when((metric %in% c("inc_loss", "telework", "learning_fewer" )) &
+                                   (week_num %in% phase_3_1) ~ 1,
+                                 metric == "inc_loss_rv" & !(week_num %in% phase_3_1) ~ 1,
+                                 TRUE ~ 0)
+         )
+  
+
+
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
+write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
 end_all <- Sys.time()
 print(end_all - start_all)
