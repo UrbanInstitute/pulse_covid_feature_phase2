@@ -46,6 +46,12 @@ other_cols <- c(
 
 all_cols <- c(metrics, other_cols)
 
+puf_all_weeks <- s3read_using(fread, object = "phase2_pulse_puf_most_recent.csv", bucket = "ui-census-pulse-survey") %>%
+  mutate(spend_credit = as.numeric(spend_credit),
+         spend_savings = as.numeric(spend_savings),
+         spend_stimulus = as.numeric(spend_stimulus))
+
+
 ##  Read in and clean data
 puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
   mutate(spend_credit = as.numeric(spend_credit),
@@ -53,8 +59,10 @@ puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.c
          spend_stimulus = as.numeric(spend_stimulus),
          spend_ui = as.numeric(spend_ui)) %>%
 #create combined inc_loss variable for efficient processing
-mutate(inc_loss <- case_when(week_x >= 28 ~ inc_loss_rv,
+mutate(inc_loss = case_when(week_x >= 28 ~ inc_loss_rv,
                              TRUE ~ inc_loss))
+
+
                           
 # Set parameters
 CUR_WEEK <- puf_all_weeks %>%
@@ -578,12 +586,10 @@ write.csv(us_diff_ses, here("data/intermediate-data", "us_diff_ses.csv"))
 # functions to calculate US total means/SEs
 calculate_se_us_total <- function(metric, svy) {
   se_df <- svy %>%
-    mutate(week_num = factor(week_num)) %>%
     srvyr::filter(!is.na(!!sym(metric))) %>%
-    group_by(week_num, .drop = FALSE) 
+    group_by(week_num) 
   
-  result <- tryCatch({
-    result <- se_df %>%
+  result <- se_df %>%
       summarise(mean = survey_mean(!!sym(metric), na.rm = TRUE)) %>%
       # pull(out) %>%
       mutate(
@@ -593,23 +599,7 @@ calculate_se_us_total <- function(metric, svy) {
         race_var = "total"
       ) %>%
       select(week_num, geography, race_var, mean, se, metric)
-    
-  }, error = function(err){
-    data <- tibble(
-      week_num = factor(week_num),
-      mean = NA,
-      se = 0,
-      metric = metric,
-      geography = "US",
-      race_var = "total"
-      ) %>%
-      select(week_num, geography, race_var, mean, se, metric)
-    
-    return(data)
-    } 
-  )
-    
-
+  
   return(result)
 }
 
@@ -660,8 +650,22 @@ us_diff_ses_out <- us_diff_ses %>%
   ) %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
+phase_3_1 <- c("wk28")
 
-data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out)
+us_total_rem <- expand_grid(metric = c("telework", "learning_fewer"),
+                            geography = "US",
+                            race_var = "total",
+                            geo_type = "national",
+                            week_num = phase_3_1,
+                            mean = NA_real_,
+                            se = 0,
+                            moe_95 = 0,
+                            moe_95_ub = NA_real_,
+                            moe_95_lb = NA_real_,
+                            sigdiff = NA_real_) %>%
+  select(geography, metric, week_num, race_var, mean, se, moe_95, moe_95_lb, moe_95_ub, sigdiff, geo_type)
+
+data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out, us_total_rem)
 
 week_crosswalk <- tibble::tribble(
   ~week_num, ~date_int,
@@ -684,7 +688,7 @@ week_crosswalk <- tibble::tribble(
 )
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
-data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
+data_out_feature <- left_join(data_all_up, week_crosswalk, by = "week_num") %>%
   arrange(metric, race_var, geography,
           factor(week_num,
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
@@ -693,26 +697,26 @@ data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
 
 
 # create data for catalog splitting inc_loss and inc_loss_rv
+phase_3_1_rem_metric <- c("inc_loss", "telework", "learning_fewer" )
 
-phase_3_1 <- c("wk28")
 inc_loss_rv <- data_out_feature %>%
   filter(metric == "inc_loss") %>%
-  mutate(mean = if_else(week_num %in% inc_loss_rv_wks, mean, NA_real_ ),
-         se = if_else(week_num %in% inc_loss_rv_wks, se, 0 ),
-         moe_95 = if_else(week_num %in% inc_loss_rv_wks, moe_95, 0),
-         moe_95_lb = if_else(week_num %in% inc_loss_rv_wks, moe_95_lb, NA_real_ ),
-         moe_95_ub = if_else(week_num %in% inc_loss_rv_wks, moe_95_ub, NA_real_ ),
-         sigdiff= if_else(week_num %in% inc_loss_rv_wks, sigdiff, NA_real_ ),
+  mutate(mean = if_else(week_num %in% phase_3_1, mean, NA_real_ ),
+         se = if_else(week_num %in% phase_3_1, se, 0 ),
+         moe_95 = if_else(week_num %in% phase_3_1, moe_95, 0),
+         moe_95_lb = if_else(week_num %in% phase_3_1, moe_95_lb, NA_real_ ),
+         moe_95_ub = if_else(week_num %in% phase_3_1, moe_95_ub, NA_real_ ),
+         sigdiff= if_else(week_num %in% phase_3_1, sigdiff, NA_real_ ),
          metric = "inc_loss_rv")
 
 data_out <- rbind(data_out_feature, inc_loss_rv) %>%
-  mutate(mean = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), mean, NA_real_ ),
-         se = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), se, 0 ),
-         moe_95 = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), moe_95, 0),
-         moe_95_lb = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), moe_95_lb, NA_real_ ),
-         moe_95_ub = if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), moe_95_ub, NA_real_ ),
-         sigdiff= if_else((metric == "inc_loss") & !(week_num %in% inc_loss_rv_wks), sigdiff, NA_real_ ),
-         var_removed = case_when((metric %in% c("inc_loss", "telework", "learning_fewer" )) &
+  mutate(mean = if_else(((metric == "inc_loss") & (week_num %in% phase_3_1)), NA_real_, mean ),
+         se = if_else((metric == "inc_loss") & (week_num %in% phase_3_1), 0, se ),
+         moe_95 = if_else((metric == "inc_loss") & (week_num %in% phase_3_1), 0, moe_95),
+         moe_95_lb = if_else((metric == "inc_loss") & (week_num %in% phase_3_1), NA_real_, moe_95_lb),
+         moe_95_ub = if_else((metric == "inc_loss") & (week_num %in% phase_3_1), NA_real_, moe_95_ub),
+         sigdiff= if_else((metric == "inc_loss") & (week_num %in% phase_3_1), NA_real_, sigdiff),
+         var_removed = case_when((metric %in% phase_3_1_rem_metric) &
                                    (week_num %in% phase_3_1) ~ 1,
                                  metric == "inc_loss_rv" & !(week_num %in% phase_3_1) ~ 1,
                                  TRUE ~ 0)
