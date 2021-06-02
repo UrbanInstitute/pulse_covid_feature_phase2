@@ -46,18 +46,14 @@ other_cols <- c(
 
 all_cols <- c(metrics, other_cols)
 
-puf_all_weeks <- s3read_using(fread, object = "phase2_pulse_puf_most_recent.csv", bucket = "ui-census-pulse-survey") %>%
-  mutate(spend_credit = as.numeric(spend_credit),
-         spend_savings = as.numeric(spend_savings),
-         spend_stimulus = as.numeric(spend_stimulus))
-
-
 ##  Read in and clean data
 puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
   mutate(spend_credit = as.numeric(spend_credit),
          spend_savings = as.numeric(spend_savings),
          spend_stimulus = as.numeric(spend_stimulus),
-         spend_ui = as.numeric(spend_ui)) %>%
+         spend_ui = as.numeric(spend_ui),
+         inc_loss = as.numeric(inc_loss), 
+         inc_loss_rv = as.numeric(inc_loss_rv)) %>%
 #create combined inc_loss variable for efficient processing
 mutate(inc_loss = case_when(week_x >= 28 ~ inc_loss_rv,
                              TRUE ~ inc_loss))
@@ -684,7 +680,8 @@ week_crosswalk <- tibble::tribble(
   "wk25", paste("2/17/21\u2013", "3/1/21", sep = ""),
   "wk26", paste("3/3/21\u2013", "3/15/21", sep = ""),
   "wk27", paste("3/17/21\u2013", "3/29/21", sep = ""),
-  "wk28", paste("4/14/21\u2013", "4/26/21", sep = "")
+  "wk28", paste("4/14/21\u2013", "4/26/21", sep = ""),
+  "wk29", paste("4/28/21\u2013", "5/10/21", sep = "")
 )
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
@@ -693,7 +690,7 @@ data_out_feature <- left_join(data_all_up, week_crosswalk, by = "week_num") %>%
           factor(week_num,
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
-                            "wk25", "wk26",  "wk27", "wk28")))
+                            "wk25", "wk26",  "wk27", "wk28", "wk29")))
 
 
 # create data for catalog splitting inc_loss and inc_loss_rv
