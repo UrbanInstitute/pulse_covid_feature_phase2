@@ -685,7 +685,7 @@ week_crosswalk <- tibble::tribble(
 )
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
-data_out_feature <- left_join(data_all_up, week_crosswalk, by = "week_num") %>%
+data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
   arrange(metric, race_var, geography,
           factor(week_num,
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
