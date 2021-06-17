@@ -490,13 +490,15 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 29
-week_vec <- c(13:CUR_WEEK)
+CUR_WEEK <- 30
+week_vec <- c(30:CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
 # week_num that differentiates microdata from each week.
 
 puf_all_weeks <- map_df(week_vec, download_and_clean_puf_data)
+
+
 metric_list <- calculate_response_rate_metrics(puf_all_weeks)
 rr_out <- metric_list[[1]]
 job_loss_out <- metric_list[[2]]
@@ -511,12 +513,24 @@ puf_all_weeks <- puf_all_weeks %>%
                                TRUE ~ as.numeric(inc_loss))
   )
 
+puf_all_weeks_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_pulse_puf_most_recent.csv")
+puf_all_weeks <- bind_rows(puf_all_weeks_29, puf_all_weeks)
+
+
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
 
 write_csv(puf_all_weeks, str_glue("data/intermediate-data/pulse_puf2_week_13_to_{CUR_WEEK}.csv"))
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
+
+rr_out_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_race_all.csv")
+job_loss_out_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_job_loss_all.csv")
+prop_resp_race_out_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_response_by_race_all.csv")
+
+rr_out <- rbind(rr_out_29, rr_out)
+job_loss_out <- rbind(job_loss_out_29, job_loss_out)
+prop_resp_race_out <- rbind(prop_resp_race_out_29, prop_resp_race_out)
 
 write_csv(rr_out, here("data/intermediate-data", "pulse2_rr_metrics_race_all.csv"))
 write_csv(job_loss_out, here("data/intermediate-data", "pulse2_rr_metrics_job_loss_all.csv"))

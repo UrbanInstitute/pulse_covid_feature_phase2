@@ -579,13 +579,16 @@ print(end - start)
 
 write.csv(us_diff_ses, here("data/intermediate-data", "us_diff_ses.csv"))
 
+
+
 # functions to calculate US total means/SEs
 calculate_se_us_total <- function(metric, svy) {
-  se_df <- svy %>%
-    srvyr::filter(!is.na(!!sym(metric))) %>%
-    group_by(week_num) 
-  
-  result <- se_df %>%
+  if (!metric %in% c("telework", "learning_fewer" )) {
+    se_df <- svy %>%
+      srvyr::filter(!is.na(!!sym(metric))) %>%
+      group_by(week_num) 
+    
+    result <- se_df %>%
       summarise(mean = survey_mean(!!sym(metric), na.rm = TRUE)) %>%
       # pull(out) %>%
       mutate(
@@ -595,6 +598,17 @@ calculate_se_us_total <- function(metric, svy) {
         race_var = "total"
       ) %>%
       select(week_num, geography, race_var, mean, se, metric)
+  } else {
+    result <- tibble(
+      week_num = "wk30",
+      geography = "US",
+      race_var = "total",
+      mean = NA_real_,
+      se = 0,
+      metric = metric
+    )
+  }
+  
   
   return(result)
 }
@@ -611,6 +625,8 @@ format_feature_total <- function(data, geo) {
 
   return(data)
 }
+
+
 
 # calculate US-wide means for each metric/week
 us_total <- map_df(metrics, calculate_se_us_total, svy = svy_all)
@@ -646,7 +662,9 @@ us_diff_ses_out <- us_diff_ses %>%
   ) %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
-phase_3_1 <- c("wk28")
+phase_3_1 <- c("wk28", "wk29", "wk30")
+# create data for catalog splitting inc_loss and inc_loss_rv
+phase_3_1_rem_metric <- c("inc_loss", "telework", "learning_fewer" )
 
 us_total_rem <- expand_grid(metric = c("telework", "learning_fewer"),
                             geography = "US",
@@ -661,7 +679,7 @@ us_total_rem <- expand_grid(metric = c("telework", "learning_fewer"),
                             sigdiff = NA_real_) %>%
   select(geography, metric, week_num, race_var, mean, se, moe_95, moe_95_lb, moe_95_ub, sigdiff, geo_type)
 
-data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out, us_total_rem)
+data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out)
 
 week_crosswalk <- tibble::tribble(
   ~week_num, ~date_int,
@@ -681,7 +699,8 @@ week_crosswalk <- tibble::tribble(
   "wk26", paste("3/3/21\u2013", "3/15/21", sep = ""),
   "wk27", paste("3/17/21\u2013", "3/29/21", sep = ""),
   "wk28", paste("4/14/21\u2013", "4/26/21", sep = ""),
-  "wk29", paste("4/28/21\u2013", "5/10/21", sep = "")
+  "wk29", paste("4/28/21\u2013", "5/10/21", sep = ""),
+  "wk30", paste("5/12/21\u2013", "5/24/21", sep = "")
 )
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
@@ -690,11 +709,7 @@ data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
           factor(week_num,
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
-                            "wk25", "wk26",  "wk27", "wk28", "wk29")))
-
-
-# create data for catalog splitting inc_loss and inc_loss_rv
-phase_3_1_rem_metric <- c("inc_loss", "telework", "learning_fewer" )
+                            "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30")))
 
 inc_loss_rv <- data_out_feature %>%
   filter(metric == "inc_loss") %>%
@@ -723,6 +738,12 @@ data_out <- rbind(data_out_feature, inc_loss_rv) %>%
 
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)
+
+data_out_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv")
+data_out_feature_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")
+
+data_out <- rbind(data_out_29, data_out)
+data_out_feature <- rbind(data_out_feature_29, data_out_feature)
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
