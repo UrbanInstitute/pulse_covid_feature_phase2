@@ -12,7 +12,6 @@ library(furrr)
 library(aws.s3)
 library(data.table)
 
-start_all <- Sys.time()
 metrics <- c(
   "uninsured",
   "insured_public",
@@ -105,7 +104,9 @@ puf_all_weeks2 <- puf_all_weeks %>%
       str_detect(hisp_rrace, "Two or") ~ 1,
       TRUE ~ 0
     )
-  )
+  ) %>%
+  # only run metrics for current week
+  filter(week_num == str_glue("wk{CUR_WEEK}"))
 
 puf_all_weeks2_total <- puf_all_weeks2 %>%
   # Create one hot encoding of cbsas and states for easy use with survey pkg
@@ -561,7 +562,6 @@ print(end - start)
 
 start <- Sys.time()
 plan(sequential)
-#plan(multisession, workers = CUR_WEEK)
 all_diff_ses_total <- map_dfr(all_week_list, 
                                ~generate_se_state_and_cbsas_total(metrics = metrics,
                                                             df = .x))
@@ -662,7 +662,7 @@ us_diff_ses_out <- us_diff_ses %>%
   ) %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
-phase_3_1 <- c("wk28", "wk29", "wk30")
+phase_3_1 <- c("wk28", "wk29", "wk30", "wk31")
 # create data for catalog splitting inc_loss and inc_loss_rv
 phase_3_1_rem_metric <- c("inc_loss", "telework", "learning_fewer" )
 
@@ -700,16 +700,12 @@ week_crosswalk <- tibble::tribble(
   "wk27", paste("3/17/21\u2013", "3/29/21", sep = ""),
   "wk28", paste("4/14/21\u2013", "4/26/21", sep = ""),
   "wk29", paste("4/28/21\u2013", "5/10/21", sep = ""),
-  "wk30", paste("5/12/21\u2013", "5/24/21", sep = "")
+  "wk30", paste("5/12/21\u2013", "5/24/21", sep = ""),
+  "wk31", paste("5/26/21\u2013", "6/7/21", sep = "")
 )
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
-data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
-  arrange(metric, race_var, geography,
-          factor(week_num,
-                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
-                            "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
-                            "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30")))
+data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") 
 
 inc_loss_rv <- data_out_feature %>%
   filter(metric == "inc_loss") %>%
@@ -736,16 +732,29 @@ data_out <- rbind(data_out_feature, inc_loss_rv) %>%
   
 
 
+
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)
 
-data_out_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv")
-data_out_feature_29 <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")
+data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv")
+data_out_feature_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")
 
-data_out <- rbind(data_out_29, data_out)
-data_out_feature <- rbind(data_out_feature_29, data_out_feature)
+data_out <- rbind(data_out_prev, data_out) %>%
+  arrange(metric, race_var, geography,
+          factor(week_num,
+                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
+                            "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
+                            "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
+                            "wk31")))
+
+data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
+  arrange(metric, race_var, geography,
+          factor(week_num,
+                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
+                            "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
+                            "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
+                            "wk31")))
+
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
-end_all <- Sys.time()
-print(end_all - start_all)

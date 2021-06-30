@@ -817,7 +817,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 30
+CUR_WEEK <- 31
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 week_num_tw <- 13:27
@@ -858,7 +858,6 @@ metrics <- c(
   "foreclosure_risk",
   "inc_loss",
   "insured_public",
-  "learning_fewer",
   "mentalhealth_unmet",
   "mortgage_caughtup",
   "mortgage_not_conf",
@@ -869,9 +868,9 @@ metrics <- c(
   "spend_snap",
   "spend_stimulus",
   "spend_ui",
-  "telework",
   "uninsured"
   )
+
 
 
 ### Check that data from data tables match rolling average estimates we calculated
@@ -946,7 +945,7 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
     select(-perc_lost_income, -perc_lose_income, week_num, race_var, everything()) %>%
-    right_join(week_crosswalk) %>%
+    #right_join(week_crosswalk) %>%
     group_by(week_num, geography, race_var) %>%
     summarize(
       inc_loss = sum(income_loss_since_mar_13) / sum(total_answered_lost),
@@ -1113,13 +1112,11 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21", 
-                    "wk22", "wk23", "wk24", "wk25", "wk26", "wk27", "wk28", "wk29"), size = 10, replace = TRUE),
+  wk_num = sample(c(str_glue("wk{CUR_WEEK}")), size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics,10, replace = TRUE)
-) %>%
-  filter(!((wk_num %in% c("wk28", "wk29")) & (metr %in% c("telework", "learning_fewer"))))
+) 
 
 se_glm_test_results <- random_test_list %>% pmap_lgl(check_glm_se_match)
 
@@ -1293,14 +1290,11 @@ test_against_manual_us <- function(svy = svy_obj, data = us_diff_ses, metric_nam
 random_test_list_manual <- tibble(
   metric_name = sample(metrics, 10, replace = TRUE),
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", 
-                    "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27", "wk28", 
-                    "wk29"), size = 10, replace = TRUE),
+  wk_num = sample(c(str_glue("wk{CUR_WEEK}")), size = 10, replace = TRUE),
   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
   geo_name = c(sample(all_states, 7), sample(all_metros, 3)),
   geo_col = c(rep("state", 7), rep("cbsa_title", 3))
-) %>%
-  filter(!((wk_num %in% c("wk28", "wk29")) & (metric_name %in% c("telework", "learning_fewer"))))
+) 
 
 # Test manual calculations for specific geographies and all US
 se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_manual)
@@ -1308,11 +1302,8 @@ se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_
 random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
-   wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", 
-                     "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27", "wk28", 
-                     "wk29"), size = 10, replace = TRUE),
+   wk_num = sample(c(str_glue("wk{CUR_WEEK}")), size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
- ) %>%
-  filter(!((wk_num %in% c("wk28", "wk29")) & (metric_name %in% c("telework", "learning_fewer"))))
+ )
 
 se_manual_calc_test_us_results = random_test_list_us %>% pmap_df(test_against_manual_us)
