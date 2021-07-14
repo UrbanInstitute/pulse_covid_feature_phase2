@@ -64,6 +64,11 @@ CUR_WEEK <- puf_all_weeks %>%
   pull(week_x) %>%
   max()
 
+# include previous week for wk 32 and wk 33 update
+LAST_WEEK <- CUR_WEEK -1
+
+new_week_vec <- c(str_glue("wk{LAST_WEEK}"), str_glue("wk{CUR_WEEK}"))
+
 puf_all_weeks <- puf_all_weeks %>%
   mutate(tbirth_year = as.numeric(tbirth_year))
 
@@ -106,7 +111,7 @@ puf_all_weeks2 <- puf_all_weeks %>%
     )
   ) %>%
   # only run metrics for current week
-  filter(week_num == str_glue("wk{CUR_WEEK}"))
+  filter(week_num %in% new_week_vec)
 
 puf_all_weeks2_total <- puf_all_weeks2 %>%
   # Create one hot encoding of cbsas and states for easy use with survey pkg
@@ -701,7 +706,9 @@ week_crosswalk <- tibble::tribble(
   "wk28", paste("4/14/21\u2013", "4/26/21", sep = ""),
   "wk29", paste("4/28/21\u2013", "5/10/21", sep = ""),
   "wk30", paste("5/12/21\u2013", "5/24/21", sep = ""),
-  "wk31", paste("5/26/21\u2013", "6/7/21", sep = "")
+  "wk31", paste("5/26/21\u2013", "6/7/21", sep = ""),
+  "wk32", paste("6/9/21\u2013", "6/21/21", sep = ""),
+  "wk33", paste("6/23/21\u2013", "7/5/21", sep = ""),
 )
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
