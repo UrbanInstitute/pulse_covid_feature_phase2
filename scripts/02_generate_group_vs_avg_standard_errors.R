@@ -46,7 +46,10 @@ other_cols <- c(
 all_cols <- c(metrics, other_cols)
 
 ##  Read in and clean data
-puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
+#puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_all_weeks.csv")) %>%
+puf_all_weeks <- s3read_using(FUN = read_csv, 
+                              object = "phase2_pulse_puf_most_recent33.csv", 
+                              bucket = "ui-census-pulse-survey") %>%
   mutate(spend_credit = as.numeric(spend_credit),
          spend_savings = as.numeric(spend_savings),
          spend_stimulus = as.numeric(spend_stimulus),
@@ -128,17 +131,34 @@ svy_all <- puf_all_weeks2 %>%
     mse = TRUE
   )
 
-state_list <- puf_all_weeks2 %>%
+state_list_cw <- puf_all_weeks2 %>%
+  filter(week_num == "wk33") %>%
   mutate(geography = state,
          geo_type = "state") %>%
   split(list(puf_all_weeks2$state, puf_all_weeks2$week_num))
 
-cbsa_list <- puf_all_weeks2 %>%
+cbsa_list_cw <- puf_all_weeks2 %>%
+  filter(week_num == "wk33") %>%
   mutate(geography = cbsa_title,
          geo_type = "msa") %>%
   split(list(puf_all_weeks2$cbsa_title, puf_all_weeks2$week_num))
 
-all_list <- c(state_list, cbsa_list)
+all_list_cw <- c(state_list_cw, cbsa_list_cw)
+
+puf_lw <- puf_all_weeks2 %>%
+  filter(week_num == "wk32")
+
+state_list_lw <- puf_lw %>%
+  mutate(geography = state,
+         geo_type = "state") %>%
+  split(list(puf_lw$state, puf_lw$week_num))
+
+cbsa_list_lw <- puf_lw %>%
+  mutate(geography = cbsa_title,
+         geo_type = "msa") %>%
+  split(list(puf_lw$cbsa_title, puf_lw$week_num))
+
+all_list_lw <- c(state_list_lw, cbsa_list_lw)
 
 all_week_list <- puf_all_weeks2_total %>%
   split(puf_all_weeks2_total$week_num)
@@ -558,12 +578,17 @@ race_indicators <- c("black", "asian", "hispanic", "white", "other")
 #This should be run on a reasonably large machine like a c5.2 instance
 start <- Sys.time()
 plan(multisession, workers = parallel::detectCores() - 2)
-all_diff_ses <- future_map_dfr(all_list, 
+all_diff_ses <- future_map_dfr(all_list_cw, 
                                ~generate_se_state_and_cbsas(metrics = metrics,
                                                             race_indicators = race_indicators,
                                                             df = .x))
 end <- Sys.time()
 print(end - start)
+
+all_diff_ses_lw <- future_map_dfr(all_list_lw, 
+                               ~generate_se_state_and_cbsas(metrics = metrics,
+                                                            race_indicators = race_indicators,
+                                                            df = .x))
 
 start <- Sys.time()
 plan(sequential)
@@ -573,7 +598,7 @@ all_diff_ses_total <- map_dfr(all_week_list,
 end <- Sys.time()
 print(end - start)
 
-all_diff_ses <- rbind(all_diff_ses, all_diff_ses_total)
+all_diff_ses <- rbind(all_diff_ses_lw, all_diff_ses, all_diff_ses_total)
 
 write.csv(all_diff_ses, here("data/intermediate-data", "all_diff_ses.csv"))
 
@@ -588,7 +613,6 @@ write.csv(us_diff_ses, here("data/intermediate-data", "us_diff_ses.csv"))
 
 # functions to calculate US total means/SEs
 calculate_se_us_total <- function(metric, svy) {
-  if (!metric %in% c("telework", "learning_fewer" )) {
     se_df <- svy %>%
       srvyr::filter(!is.na(!!sym(metric))) %>%
       group_by(week_num) 
@@ -603,17 +627,6 @@ calculate_se_us_total <- function(metric, svy) {
         race_var = "total"
       ) %>%
       select(week_num, geography, race_var, mean, se, metric)
-  } else {
-    result <- tibble(
-      week_num = "wk30",
-      geography = "US",
-      race_var = "total",
-      mean = NA_real_,
-      se = 0,
-      metric = metric
-    )
-  }
-  
   
   return(result)
 }
@@ -634,7 +647,8 @@ format_feature_total <- function(data, geo) {
 
 
 # calculate US-wide means for each metric/week
-us_total <- map_df(metrics, calculate_se_us_total, svy = svy_all)
+metrics_total <- metrics[!metrics %in% c("telework", "learning_fewer")]
+us_total <- map_df(metrics_total, calculate_se_us_total, svy = svy_all)
 write.csv(us_total, here("data/intermediate-data", str_glue("us_total_se_to_week{CUR_WEEK}.csv")))
 
 # Write out svy object as an RDS object for use in QC scipts
@@ -667,7 +681,7 @@ us_diff_ses_out <- us_diff_ses %>%
   ) %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
-phase_3_1 <- c("wk28", "wk29", "wk30", "wk31")
+phase_3_1 <- c("wk28", "wk29", "wk30", "wk31", "wk32", "wk33")
 # create data for catalog splitting inc_loss and inc_loss_rv
 phase_3_1_rem_metric <- c("inc_loss", "telework", "learning_fewer" )
 
@@ -684,7 +698,7 @@ us_total_rem <- expand_grid(metric = c("telework", "learning_fewer"),
                             sigdiff = NA_real_) %>%
   select(geography, metric, week_num, race_var, mean, se, moe_95, moe_95_lb, moe_95_ub, sigdiff, geo_type)
 
-data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out)
+data_all <- bind_rows(all_diff_ses_out, us_diff_ses_out, us_total_out, us_total_rem)
 
 week_crosswalk <- tibble::tribble(
   ~week_num, ~date_int,
@@ -743,8 +757,10 @@ data_out <- rbind(data_out_feature, inc_loss_rv) %>%
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)
 
-data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv")
-data_out_feature_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")
+data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv") %>%
+  filter(!(geography == "US" & race_var == "total" & metric %in% c("telework", "learning_fewer") & week_num %in% phase_3_1))
+data_out_feature_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv") %>%
+  filter(!(geography == "US" & race_var == "total" & metric %in% c("telework", "learning_fewer") & week_num %in% phase_3_1))
 
 data_out <- rbind(data_out_prev, data_out) %>%
   arrange(metric, race_var, geography,
@@ -752,7 +768,7 @@ data_out <- rbind(data_out_prev, data_out) %>%
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
-                            "wk31")))
+                            "wk31", "wk32", "wk33")))
 
 data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
   arrange(metric, race_var, geography,
@@ -760,7 +776,7 @@ data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
-                            "wk31")))
+                            "wk31", "wk32", "wk33")))
 
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
