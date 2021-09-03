@@ -729,9 +729,9 @@ dir.create("data/final-data", showWarnings = F)
 write_csv(data_out, here("data/final-data", str_glue("phase2_wk{CUR_WEEK}.csv")))
 write_csv(data_out_feature, here("data/final-data", str_glue("phase2_wk{CUR_WEEK}_feature.csv")))
 
-data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv") #%>%
- # filter(!(geography == "US" & race_var == "total" & metric %in% c("telework", "learning_fewer") & week_num %in% phase_3_1))
-
+data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv")
+data_out_feature_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")
+           
 data_out <- rbind(data_out_prev, data_out) %>%
   arrange(metric, race_var, geography,
           factor(week_num,
@@ -740,5 +740,13 @@ data_out <- rbind(data_out_prev, data_out) %>%
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34")))
 
+data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
+  arrange(metric, race_var, geography,
+          factor(week_num,
+                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
+                            "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
+                            "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
+                            "wk31", "wk32", "wk33", "wk34")))
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
+write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
