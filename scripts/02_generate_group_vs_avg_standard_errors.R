@@ -55,8 +55,8 @@ puf_all_weeks <- read_csv(here("data/intermediate-data", "pulse_puf2_cur_week.cs
          spend_savings = as.numeric(spend_savings),
          spend_stimulus = as.numeric(spend_stimulus),
          spend_ui = as.numeric(spend_ui),
-         inc_loss = as.numeric(inc_loss)) 
-         #inc_loss_rv = as.numeric(inc_loss_rv)) %>%
+         inc_loss = as.numeric(inc_loss), 
+         inc_loss_rv = as.numeric(inc_loss_rv)) %>%
 #create combined inc_loss variable for efficient processing
 mutate(inc_loss = case_when(week_x >= 28 ~ inc_loss_rv,
                              TRUE ~ inc_loss))
@@ -731,8 +731,6 @@ write_csv(data_out_feature, here("data/final-data", str_glue("phase2_wk{CUR_WEEK
 
 data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv") #%>%
  # filter(!(geography == "US" & race_var == "total" & metric %in% c("telework", "learning_fewer") & week_num %in% phase_3_1))
-data_out_feature_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")# %>%
-  #filter(!(geography == "US" & race_var == "total" & metric %in% c("telework", "learning_fewer") & week_num %in% phase_3_1))
 
 data_out <- rbind(data_out_prev, data_out) %>%
   arrange(metric, race_var, geography,
@@ -742,14 +740,5 @@ data_out <- rbind(data_out_prev, data_out) %>%
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34")))
 
-data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
-  arrange(metric, race_var, geography,
-          factor(week_num,
-                 levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
-                            "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
-                            "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
-                            "wk31", "wk32", "wk33", "wk34")))
-
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
-write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))

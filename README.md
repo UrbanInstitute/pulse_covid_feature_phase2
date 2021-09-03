@@ -34,7 +34,7 @@ For more information, see the [technical appendix](https://www.urban.org/sites/d
 - `httr`
 - `here`
 - `srvyr`
-- `survey`
+- `survey==4.0`
 - `fastDummies`
 - `aws.s3`
 
