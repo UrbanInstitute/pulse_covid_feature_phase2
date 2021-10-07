@@ -33,7 +33,7 @@ For more information, see the [technical appendix](https://www.urban.org/sites/d
 - `stringr`
 - `httr`
 - `here`
-- `srvyr`
+- `srvyr==1.0.0`
 - `survey==4.0`
 - `fastDummies`
 - `aws.s3`

@@ -2,8 +2,6 @@
 # Also conduct significance tests bw subgroups and
 # relevant natl/state/metro averages
 
-## TODO: different var for anxiety-depression?
-
 library(tidyverse)
 library(here)
 library(srvyr)
@@ -621,7 +619,6 @@ format_feature_total <- function(data, geo) {
 }
 
 
-
 # calculate US-wide means for each metric/week
 # starting in week 34, don't include expect_inc_loss
 metrics_total <- metrics[!metrics %in% c("telework", "learning_fewer", "expect_inc_loss")]
@@ -702,7 +699,8 @@ week_crosswalk <- tibble::tribble(
   "wk33", paste("6/23/21\u2013", "7/5/21", sep = ""),
   "wk34", paste("7/21/21\u2013", "8/2/21", sep = ""),
   "wk35", paste("8/4/21\u2013", "8/16/21", sep = ""),
-  "wk36", paste("8/18/21\u2013", "8/30/21", sep = ""))
+  "wk36", paste("8/18/21\u2013", "8/30/21", sep = ""),
+  "wk37", paste("9/1/21\u2013", "9/13/21", sep = ""))
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
 data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") 
@@ -723,8 +721,6 @@ data_out <- rbind(data_out_feature, inc_loss_rv) %>%
          )
   
 
-
-
 # Create final-data directory if it doesn't exist
 dir.create("data/final-data", showWarnings = F)
 
@@ -740,7 +736,8 @@ data_out <- rbind(data_out_prev, data_out) %>%
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
-                            "wk31", "wk32", "wk33", "wk34", "wk35", "wk36")))
+                            "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
+                            "wk37")))
 
 data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
   arrange(metric, race_var, geography,
@@ -748,7 +745,8 @@ data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
                  levels = c("wk13",  "wk14", "wk15", "wk16", "wk17", "wk18",
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
-                            "wk31", "wk32", "wk33", "wk34", "wk35", "wk36")))
+                            "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
+                            "wk37")))
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
