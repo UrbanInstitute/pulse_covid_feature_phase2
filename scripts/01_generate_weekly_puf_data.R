@@ -521,8 +521,9 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 37
-week_vec <- c(CUR_WEEK)
+CUR_WEEK <- 39
+LAST_WEEK <- 38
+week_vec <- c(LAST_WEEK, CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
 # week_num that differentiates microdata from each week.

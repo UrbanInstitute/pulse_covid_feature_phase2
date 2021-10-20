@@ -66,7 +66,9 @@ CUR_WEEK <- puf_all_weeks %>%
   pull(week_x) %>%
   max()
 
-new_week_vec <- c(str_glue("wk{CUR_WEEK}"))
+LAST_WEEK <- CUR_WEEK - 1
+
+new_week_vec <- c(str_glue("wk{LAST_WEEK}"), str_glue("wk{CUR_WEEK}"))
 
 puf_all_weeks <- puf_all_weeks %>%
   mutate(tbirth_year = as.numeric(tbirth_year))
@@ -700,7 +702,9 @@ week_crosswalk <- tibble::tribble(
   "wk34", paste("7/21/21\u2013", "8/2/21", sep = ""),
   "wk35", paste("8/4/21\u2013", "8/16/21", sep = ""),
   "wk36", paste("8/18/21\u2013", "8/30/21", sep = ""),
-  "wk37", paste("9/1/21\u2013", "9/13/21", sep = ""))
+  "wk37", paste("9/1/21\u2013", "9/13/21", sep = ""),
+  "wk38", paste("9/15/21\u2013", "9/27/21", sep = ""),
+  "wk39", paste("9/29/21\u2013", "10/11/21", sep = ""))
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
 data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") 
@@ -729,7 +733,8 @@ write_csv(data_out_feature, here("data/final-data", str_glue("phase2_wk{CUR_WEEK
 
 data_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week.csv")
 data_out_feature_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_all_to_current_week_feature.csv")
-           
+
+
 data_out <- rbind(data_out_prev, data_out) %>%
   arrange(metric, race_var, geography,
           factor(week_num,
@@ -737,7 +742,7 @@ data_out <- rbind(data_out_prev, data_out) %>%
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
-                            "wk37")))
+                            "wk37", "wk38", "wk39")))
 
 data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
   arrange(metric, race_var, geography,
@@ -746,7 +751,13 @@ data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
-                            "wk37")))
+                            "wk37", "wk38", "wk39")))
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
+
+n_row_feat_out <- length(metrics) * (15 + 51 + 1) * (CUR_WEEK - 13 + 1) * (length(race_indicators) + 1)
+n_row_out <- (length(metrics) + 1) * (15 + 51 + 1) * (CUR_WEEK - 13 + 1) * (length(race_indicators) + 1)
+
+assertthat::are_equal(n_row_feat_out, data_out_feature %>% nrow())
+assertthat::are_equal(n_row_out, data_out %>% nrow())
