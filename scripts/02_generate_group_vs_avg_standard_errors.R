@@ -1,7 +1,9 @@
 # Generate point estimates and SE for metrics of interest
 # Also conduct significance tests bw subgroups and
 # relevant natl/state/metro averages
-
+require(devtools)
+install_version("survey", version = "4.0", repos = "http://cran.us.r-project.org")
+install_version("srvyr", version = "1.0.0", repos = "http://cran.us.r-project.org")
 library(tidyverse)
 library(here)
 library(srvyr)
@@ -66,9 +68,7 @@ CUR_WEEK <- puf_all_weeks %>%
   pull(week_x) %>%
   max()
 
-LAST_WEEK <- CUR_WEEK - 1
-
-new_week_vec <- c(str_glue("wk{LAST_WEEK}"), str_glue("wk{CUR_WEEK}"))
+new_week_vec <- c(str_glue("wk{CUR_WEEK}"))
 
 puf_all_weeks <- puf_all_weeks %>%
   mutate(tbirth_year = as.numeric(tbirth_year))
@@ -704,7 +704,8 @@ week_crosswalk <- tibble::tribble(
   "wk36", paste("8/18/21\u2013", "8/30/21", sep = ""),
   "wk37", paste("9/1/21\u2013", "9/13/21", sep = ""),
   "wk38", paste("9/15/21\u2013", "9/27/21", sep = ""),
-  "wk39", paste("9/29/21\u2013", "10/11/21", sep = ""))
+  "wk39", paste("9/29/21\u2013", "10/11/21", sep = ""),
+  "wk40", paste("12/1/21\u2013", "12/13/21", sep = ""))
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
 data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") 
@@ -742,7 +743,7 @@ data_out <- rbind(data_out_prev, data_out) %>%
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
-                            "wk37", "wk38", "wk39")))
+                            "wk37", "wk38", "wk39", "wk40")))
 
 data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
   arrange(metric, race_var, geography,
@@ -751,7 +752,7 @@ data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
-                            "wk37", "wk38", "wk39")))
+                            "wk37", "wk38", "wk39", "wk40")))
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))

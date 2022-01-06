@@ -400,20 +400,39 @@ readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
   
   data <- tryCatch(
     {
-      data <- read_excel(filepath,
-                         skip = skip,
-                         col_names = c(
-                           "variable",
-                           "total",
-                           "occup_no_rent",
-                           "payment_caughtup_yes",
-                           "payment_caughtup_no",
-                           "did_not_report",
-                           "did_not_report_tenure"
-                         ),
-                         col_types = "text",
-                         sheet = sheet
-      )
+      # account for datatable change starting phase 3.3
+      if (as.numeric(str_sub(filepath, -7, -6)) > 39){
+        data <- read_excel(filepath,
+                           skip = skip,
+                           col_names = c(
+                             "variable",
+                             "total",
+                             "payment_caughtup_yes",
+                             "payment_caughtup_no",
+                             "did_not_report",
+                             "occup_no_rent",
+                             "did_not_report_tenure"
+                           ),
+                           col_types = "text",
+                           sheet = sheet
+        )
+      } else {
+        data <- read_excel(filepath,
+                           skip = skip,
+                           col_names = c(
+                             "variable",
+                             "total",
+                             "occup_no_rent",
+                             "payment_caughtup_yes",
+                             "payment_caughtup_no",
+                             "did_not_report",
+                             "did_not_report_tenure"
+                           ),
+                           col_types = "text",
+                           sheet = sheet
+        )
+      }
+      
     },
     error = function(err) {
       
@@ -881,7 +900,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 39
+CUR_WEEK <- 40
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 week_num_tw <- 13:27
@@ -965,7 +984,7 @@ check_food_insuff_numbers <- function(tables = "food2b", point_df = data_all, wk
 
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
   assert("Food Insufficiency race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
@@ -998,7 +1017,7 @@ check_rent_caughtup_numbers <- function(tables = "housing1b", point_df = data_al
   
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
   assert("rent caught up numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
@@ -1029,7 +1048,7 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
 
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
   assert("Income Loss race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
@@ -1059,7 +1078,7 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_al
   
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
   assert("eviction risk numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
@@ -1091,7 +1110,7 @@ check_telework_start_numbers <- function(tables = "transport1", point_df = data_
   
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
   assert("telework numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
