@@ -49,7 +49,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   week_num_padded <- str_pad(week_num, width = 2, side = "left", pad = "0")
   
   # starting in week 22, year changes to 2021
-  year <- ifelse(week_num > 21, 2021, 2020)
+  year <- case_when(week_num < 22 ~ 2020, 
+                    week_num >= 22 & week_num < 41 ~ 2021,
+                    week_num >= 41 ~ 2022)
 
 
   puf_url <- str_glue("https://www2.census.gov/programs-surveys/demo/datasets/hhp/{year}/wk{week_num}/HPS_Week{week_num_padded}_PUF_CSV.zip")
@@ -543,7 +545,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 40
+CUR_WEEK <- 41
 week_vec <- c(CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
