@@ -545,7 +545,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 41
+CUR_WEEK <- 28:31
 week_vec <- c(CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
@@ -568,14 +568,15 @@ puf_all_weeks <- puf_all_weeks %>%
                                TRUE ~ as.numeric(inc_loss))
   )
 
-# Create public_use_files directory if it doesn't exist
-dir.create("data/intermediate-data", showWarnings = F)
+puf_all_weeks_prev_old <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_pulse_puf_most_recent.csv",
+                               col_types = c(default = "?", est_msa = "c")) 
 
-write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_cur_week.csv"))
+puf_all_weeks_prev <- puf_all_weeks_prev_old %>%
+  filter(!week_num %in% c("wk28", "wk29", "wk30", "wk31"))
+puf_all_weeks <- bind_rows(puf_all_weeks_prev, puf_all_weeks) %>%
+  arrange(week_num)
 
-puf_all_weeks_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_pulse_puf_most_recent.csv",
-                               col_types = c(default = "?", est_msa = "c"))
-puf_all_weeks <- bind_rows(puf_all_weeks_prev, puf_all_weeks)
+assert("same num rows", nrow(puf_all_weeks_prev_old) == nrow(puf_all_weeks))
 
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
@@ -671,7 +672,11 @@ write_csv(
   "data/intermediate-data/pulse_puf2_rr_metrics_data_dictionary.csv"
 )
 
-puf_all_weeks <- read_csv("data/intermediate-data/pulse_puf2_all_weeks.csv")
+puf_all_weeks_t <- read_csv("data/intermediate-data/pulse_puf2_all_weeks.csv")
 all_missing <- puf_all_weeks %>%
   group_by(week_num) %>%
-  summarise(across(.cols = where(is.numeric), .fns = ~mean(is.na(.x))))
+  summarise(across(.cols = where(is.numeric) & !starts_with("pweight"), .fns = ~mean(is.na(.x)))) %>%
+  pivot_longer(cols = -week_num, names_to = "col_name", values_to = "prop_missing") %>%
+  filter(prop_missing == 1) 
+
+all_missing_count <- count(all_missing, week_num)
