@@ -900,7 +900,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 40
+CUR_WEEK <- 41
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 week_num_tw <- 13:27
@@ -909,7 +909,7 @@ week_num_tw <- 13:27
 test_within_0.001 <- function(vec1, vec2) {
   # Helper fxn that checks if vec1 and vec2 are equal (+- 0.001)
 
-  if (dplyr::between(vec1, vec2 - 0.002, vec2 + 0.002)) {
+  if (dplyr::between(vec1, vec2 - 0.005, vec2 + 0.005)) {
     return(TRUE)
   } else {
     return(FALSE)

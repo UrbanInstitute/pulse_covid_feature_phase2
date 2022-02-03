@@ -670,3 +670,8 @@ write_csv(
   rr_metrics_data_dictionary,
   "data/intermediate-data/pulse_puf2_rr_metrics_data_dictionary.csv"
 )
+
+puf_all_weeks <- read_csv("data/intermediate-data/pulse_puf2_all_weeks.csv")
+all_missing <- puf_all_weeks %>%
+  group_by(week_num) %>%
+  summarise(across(.cols = where(is.numeric), .fns = ~mean(is.na(.x))))
