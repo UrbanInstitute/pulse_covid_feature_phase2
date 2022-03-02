@@ -706,7 +706,8 @@ week_crosswalk <- tibble::tribble(
   "wk38", paste("9/15/21\u2013", "9/27/21", sep = ""),
   "wk39", paste("9/29/21\u2013", "10/11/21", sep = ""),
   "wk40", paste("12/1/21\u2013", "12/13/21", sep = ""),
-  "wk41", paste("12/29/21\u2013", "1/10/22", sep = ""))
+  "wk41", paste("12/29/21\u2013", "1/10/22", sep = ""),
+  "wk42", paste("1/26/22\u2013", "2/7/22", sep = ""))
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
 data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") 
@@ -744,7 +745,7 @@ data_out <- rbind(data_out_prev, data_out) %>%
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
-                            "wk37", "wk38", "wk39", "wk40", "wk41")))
+                            "wk37", "wk38", "wk39", "wk40", "wk41", "wk42")))
 
 data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
   arrange(metric, race_var, geography,
@@ -753,7 +754,7 @@ data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
                             "wk19", "wk20", "wk21", "wk22", "wk23", "wk24",
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
-                            "wk37", "wk38", "wk39", "wk40", "wk41")))
+                            "wk37", "wk38", "wk39", "wk40", "wk41", "wk42")))
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))

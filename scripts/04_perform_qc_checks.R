@@ -831,7 +831,9 @@ generate_table_data <- function(table_var, week_num) {
     filter(table == table_var) %>%
     pull(cleaning_fxn)
 
-  year <- ifelse(week_num > 21, 2021, 2020)
+  year <- case_when(week_num <= 21 ~ 2020, 
+                    week_num > 21 & week_num <=41 ~ 2021, 
+                    week_num > 41 ~ 2022)
   
   # Construct data url and downlaod
   data_url <- str_glue("https://www2.census.gov/programs-surveys/demo/tables/hhp/{year}/wk{week_num}/{table_var}_week{week_num}.xlsx")
@@ -900,7 +902,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 41
+CUR_WEEK <- 42
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 week_num_tw <- 13:27
@@ -1122,7 +1124,6 @@ check_telework_start_numbers()
 check_rent_caughtup_numbers()
 
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
-# Check Standard Errors for black inc_loss in wk1_2 in Atlanta
 
 check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_obj) {
   sd_calcs <- se_df %>%
