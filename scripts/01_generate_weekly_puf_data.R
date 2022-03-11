@@ -581,13 +581,22 @@ assert("same num rows", nrow(puf_all_weeks_prev_old) == nrow(puf_all_weeks))
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
 
-rr_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_race_all.csv") %>% distinct()
-job_loss_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_job_loss_all.csv") %>% distinct()
-prop_resp_race_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_response_by_race_all.csv") %>% distinct()
+rr_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_race_all.csv") %>% 
+  distinct() %>%
+  filter(!week_num %in% c("wk28", "wk29", "wk30", "wk31"))
+job_loss_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_job_loss_all.csv") %>% 
+  distinct() %>%
+  filter(!week_num %in% c("wk28", "wk29", "wk30", "wk31"))
+prop_resp_race_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_response_by_race_all.csv") %>% 
+  distinct() %>%
+  filter(!week_num %in% c("wk28", "wk29", "wk30", "wk31"))
 
-rr_out <- rbind(rr_out_prev, rr_out)
-job_loss_out <- rbind(job_loss_out_prev, job_loss_out)
-prop_resp_race_out <- rbind(prop_resp_race_out_prev, prop_resp_race_out)
+rr_out <- rbind(rr_out_prev, rr_out) %>%
+  arrange(week_num)
+job_loss_out <- rbind(job_loss_out_prev, job_loss_out) %>%
+  arrange(week_num)
+prop_resp_race_out <- rbind(prop_resp_race_out_prev, prop_resp_race_out) %>%
+  arrange(week_num)
 
 write_csv(rr_out, here("data/intermediate-data", "pulse2_rr_metrics_race_all.csv"))
 write_csv(job_loss_out, here("data/intermediate-data", "pulse2_rr_metrics_job_loss_all.csv"))
