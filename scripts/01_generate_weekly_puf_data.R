@@ -570,13 +570,17 @@ puf_all_weeks <- puf_all_weeks %>%
 
 puf_all_weeks_prev_old <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_pulse_puf_most_recent.csv",
                                col_types = c(default = "?", est_msa = "c")) 
+n_old <- nrow(puf_all_weeks_prev_old)
 
 puf_all_weeks_prev <- puf_all_weeks_prev_old %>%
   filter(!week_num %in% c("wk28", "wk29", "wk30", "wk31"))
+
+rm(puf_all_weeks_prev_old)
+
 puf_all_weeks <- bind_rows(puf_all_weeks_prev, puf_all_weeks) %>%
   arrange(week_num)
 
-assert("same num rows", nrow(puf_all_weeks_prev_old) == nrow(puf_all_weeks))
+assert("same num rows", n_old == nrow(puf_all_weeks))
 
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
