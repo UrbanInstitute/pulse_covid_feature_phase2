@@ -134,9 +134,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
              tch_hrs = NA_real_)
   }
   
-  #Phase 3.3: Week 40 - present
+  #Phase 3.3: Week 40 - 42
   
-  if (week_num > 39) {
+  if (week_num > 39 & week_num <= 42) {
     df <- df %>%
       rename(WRKLOSS = WRKLOSSRV,
              SPNDSRC1 = SPND_SRC1,
@@ -155,6 +155,29 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
              tw_start = NA_real_,
              tch_hrs = NA_real_)
   }
+  
+  #Phase 3.4: Week 43
+  
+  if (week_num > 42) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV,
+             SPNDSRC1 = SPND_SRC1,
+             SPNDSRC2 = SPND_SRC2,
+             SPNDSRC3 = SPND_SRC3,
+             SPNDSRC4 = SPND_SRC4,
+             SPNDSRC5 = SPND_SRC5,
+             SPNDSRC6 = SPND_SRC6,
+             SPNDSRC7 = SPND_SRC7,
+             SPNDSRC8 = SPND_SRC8,
+             SPNDSRC9 = SPND_SRC9,
+             SPNDSRC10 = SPND_SRC10,
+             SPNDSRC11 = SPND_SRC11,
+             SPNDSRC12 = SPND_SRC12) %>%
+      mutate(expctloss = NA_real_,
+             tw_start = NA_real_,
+             tch_hrs = NA_real_)
+  }
+  
   
 
   df_clean <- df %>%
@@ -545,7 +568,7 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 42
+CUR_WEEK <- 43
 week_vec <- c(CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
@@ -675,3 +698,15 @@ puf_all_weeks <- read_csv("data/intermediate-data/pulse_puf2_all_weeks.csv")
 all_missing <- puf_all_weeks %>%
   group_by(week_num) %>%
   summarise(across(.cols = where(is.numeric), .fns = ~mean(is.na(.x))))
+
+num_all_missing <- all_missing %>%
+  pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
+  group_by(week_num) %>%
+  summarise(n_all_missing = sum(pct_missing == 1))
+
+# look at differences with adding new phase
+dif_42_43 <- all_missing %>%
+  filter(week_num %in% c("wk42", "wk43")) %>%
+  pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
+  pivot_wider(names_from = "week_num", values_from = "pct_missing") %>%
+  filter(wk42 == 1 | wk43 == 1, wk42 != wk43)

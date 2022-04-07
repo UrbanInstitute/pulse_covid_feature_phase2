@@ -902,7 +902,7 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 42
+CUR_WEEK <- 43
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 week_num_tw <- 13:27
