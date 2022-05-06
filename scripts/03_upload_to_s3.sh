@@ -1,5 +1,5 @@
 bucket_name="ui-census-pulse-survey"
-endweek_padded="43"
+endweek_padded="44"
 
 sudo apt-get update -y
 sudo apt install awscli -y
