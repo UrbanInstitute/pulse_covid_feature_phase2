@@ -902,14 +902,14 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 45
+CUR_WEEK <- 47
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
 week_num_tw <- 13:27
 
 
-test_within_0.001 <- function(vec1, vec2) {
-  # Helper fxn that checks if vec1 and vec2 are equal (+- 0.001)
+test_within_0.005 <- function(vec1, vec2) {
+  # Helper fxn that checks if vec1 and vec2 are equal (+- 0.005)
 
   if (dplyr::between(vec1, vec2 - 0.005, vec2 + 0.005)) {
     return(TRUE)
@@ -918,7 +918,7 @@ test_within_0.001 <- function(vec1, vec2) {
   }
 }
 # vectorize above function
-test_within_0.001_v <- Vectorize(test_within_0.001)
+test_within_0.005_v <- Vectorize(test_within_0.005)
 
 #### ----Define and run tests------
 
@@ -934,6 +934,7 @@ all_metros <- svy_obj %>%
   unique() %>%
   na.omit()
 
+# metrics available to test as of phase 3.5
 metrics <- c(
   "depression_anxiety_signs",
   "eviction_risk",
@@ -942,11 +943,8 @@ metrics <- c(
   "foreclosure_risk",
   "inc_loss",
   "insured_public",
-  "mentalhealth_unmet",
   "mortgage_caughtup",
-  "mortgage_not_conf",
   "rent_caughtup",
-  "rent_not_conf",
   "spend_credit",
   "spend_savings",
   "spend_snap",
@@ -987,7 +985,7 @@ check_food_insuff_numbers <- function(tables = "food2b", point_df = data_all, wk
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
     filter(!is.na(mean.y), !is.na(mean.x))
-  assert("Food Insufficiency race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+  assert("Food Insufficiency race numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 
@@ -1020,7 +1018,7 @@ check_rent_caughtup_numbers <- function(tables = "housing1b", point_df = data_al
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
     filter(!is.na(mean.y), !is.na(mean.x))
-  assert("rent caught up numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+  assert("rent caught up numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum = week_num) {
@@ -1051,7 +1049,7 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
     filter(!is.na(mean.y), !is.na(mean.x))
-  assert("Income Loss race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+  assert("Income Loss race numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_all, wknum = week_num) {
@@ -1081,7 +1079,7 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_al
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
     filter(!is.na(mean.y), !is.na(mean.x))
-  assert("eviction risk numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+  assert("eviction risk numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 
@@ -1113,7 +1111,7 @@ check_telework_start_numbers <- function(tables = "transport1", point_df = data_
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
     filter(!is.na(mean.y), !is.na(mean.x))
-  assert("telework numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+  assert("telework numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 # TODO: More Checks
@@ -1192,8 +1190,8 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
   return(TRUE)
 }
 
-
-wk_to_test <- c(str_glue("wk{CUR_WEEK}"))
+LAST_WEEK <- CUR_WEEK -1
+wk_to_test <- c(str_glue('wk{LAST_WEEK}'), str_glue("wk{CUR_WEEK}"))
 
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(

@@ -69,7 +69,9 @@ CUR_WEEK <- puf_all_weeks %>%
   pull(week_x) %>%
   max()
 
-new_week_vec <- c(str_glue("wk{CUR_WEEK}"))
+LAST_WEEK <- CUR_WEEK - 1
+
+new_week_vec <- c(str_glue("wk{LAST_WEEK}"), str_glue("wk{CUR_WEEK}"))
 
 puf_all_weeks <- puf_all_weeks %>%
   mutate(tbirth_year = as.numeric(tbirth_year))
@@ -624,7 +626,13 @@ format_feature_total <- function(data, geo) {
 
 # calculate US-wide means for each metric/week
 # starting in week 34, don't include expect_inc_loss
-metrics_total <- metrics[!metrics %in% c("telework", "learning_fewer", "expect_inc_loss")]
+# starting in week 46, don't include rent_not_conf, mortgage_not_conf, mentalhealth_unmet
+metrics_total <- metrics[!metrics %in% c("telework", 
+                                         "learning_fewer", 
+                                         "expect_inc_loss",
+                                         "rent_not_conf",
+                                         "mortgage_not_conf",
+                                         "mentalhealth_unmet")]
 us_total <- map_df(metrics_total, calculate_se_us_total, svy = svy_all)
 write.csv(us_total, here("data/intermediate-data", str_glue("us_total_se_to_week{CUR_WEEK}.csv")))
 
@@ -659,10 +667,21 @@ us_diff_ses_out <- us_diff_ses %>%
   select(-other_mean, -other_se, -diff_mean, -diff_se)
 
 
-# variables removed between start of questionnaire two and phase 3.2
-phase_3_2_rem_metric <- c("inc_loss", "telework", "learning_fewer", "expect_inc_loss")
+# variables removed between start of questionnaire two and phase 3.5
+phase_3_5_rem_metric <- c("inc_loss", 
+                          "telework", 
+                          "learning_fewer", 
+                          "expect_inc_loss",
+                          "rent_not_conf",
+                          "mortgage_not_conf",
+                          "mentalhealth_unmet")
 
-us_total_rem <- expand_grid(metric = c("telework", "learning_fewer", "expect_inc_loss"),
+us_total_rem <- expand_grid(metric = c("telework", 
+                                       "learning_fewer", 
+                                       "expect_inc_loss",
+                                       "rent_not_conf",
+                                       "mortgage_not_conf",
+                                       "mentalhealth_unmet"),
                             geography = "US",
                             race_var = "total",
                             geo_type = "national",
@@ -711,7 +730,9 @@ week_crosswalk <- tibble::tribble(
   "wk42", paste("1/26/22\u2013", "2/7/22", sep = ""),
   "wk43", paste("3/2/22\u2013", "3/14/22", sep = ""),
   "wk44", paste("3/30/22\u2013", "4/11/22", sep = ""),
-  "wk45", paste("4/27/22\u2013", "5/9/22", sep = ""))
+  "wk45", paste("4/27/22\u2013", "5/9/22", sep = ""),
+  "wk46", paste("6/1/22\u2013", "6/13/22", sep = ""),
+  "wk47", paste("6/29/22\u2013", "7/11/22", sep = ""))
 
 # create data for feature with combined inc_loss and inc_loss_rv metric
 data_out_feature <- left_join(data_all, week_crosswalk, by = "week_num") %>%
@@ -729,7 +750,7 @@ data_out <- rbind(data_out_feature, inc_loss_rv) %>%
          moe_95_lb = if_else((metric == "inc_loss"), NA_real_, moe_95_lb),
          moe_95_ub = if_else((metric == "inc_loss"), NA_real_, moe_95_ub),
          sigdiff= if_else((metric == "inc_loss"), NA_real_, sigdiff),
-         var_removed = case_when((metric %in% phase_3_2_rem_metric)  ~ 1,
+         var_removed = case_when((metric %in% phase_3_5_rem_metric)  ~ 1,
                                  TRUE ~ 0)
          )
   
@@ -752,7 +773,7 @@ data_out <- rbind(data_out_prev, data_out) %>%
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
                             "wk37", "wk38", "wk39", "wk40", "wk41", "wk42",
-                            "wk43", "wk44", "wk45")))
+                            "wk43", "wk44", "wk45", "wk46", "wk47")))
 
 data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
   arrange(metric, race_var, geography,
@@ -762,7 +783,7 @@ data_out_feature <- rbind(data_out_feature_prev, data_out_feature) %>%
                             "wk25", "wk26",  "wk27", "wk28", "wk29", "wk30",
                             "wk31", "wk32", "wk33", "wk34", "wk35", "wk36",
                             "wk37", "wk38", "wk39", "wk40", "wk41", "wk42",
-                            "wk43", "wk44", "wk45")))
+                            "wk43", "wk44", "wk45", "wk46", "wk47")))
 
 write_csv(data_out, here("data/final-data", "phase2_all_to_current_week.csv"))
 write_csv(data_out_feature, here("data/final-data", "phase2_all_to_current_week_feature.csv"))
