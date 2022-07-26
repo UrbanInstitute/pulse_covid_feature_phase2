@@ -156,9 +156,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
              tch_hrs = NA_real_)
   }
   
-  #Phase 3.4: Week 43
+  #Phase 3.4: Week 43-45
   
-  if (week_num > 42) {
+  if (week_num > 42 & week_num <= 45) {
     df <- df %>%
       rename(WRKLOSS = WRKLOSSRV,
              SPNDSRC1 = SPND_SRC1,
@@ -177,6 +177,34 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
              tw_start = NA_real_,
              tch_hrs = NA_real_)
   }
+  
+  #Phase 3.5: Week 46-48
+  #Question about confidence making next rent or mortgage payment (mortconf)
+  #dropped from survey. Question about receiving needed mental healthcare
+  #(mh_notget) dropped from survey.
+  
+  if (week_num > 45 & week_num <= 48) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV,
+             SPNDSRC1 = SPND_SRC1,
+             SPNDSRC2 = SPND_SRC2,
+             SPNDSRC3 = SPND_SRC3,
+             SPNDSRC4 = SPND_SRC4,
+             SPNDSRC5 = SPND_SRC5,
+             SPNDSRC6 = SPND_SRC6,
+             SPNDSRC7 = SPND_SRC7,
+             SPNDSRC8 = SPND_SRC8,
+             SPNDSRC9 = SPND_SRC9,
+             SPNDSRC10 = SPND_SRC10,
+             SPNDSRC11 = SPND_SRC11,
+             SPNDSRC12 = SPND_SRC12) %>%
+      mutate(expctloss = NA_real_,
+             tw_start = NA_real_,
+             tch_hrs = NA_real_,
+             mortconf = NA_real_,
+             mh_notget = NA_real_)
+  }
+  
   
   
 
@@ -568,8 +596,9 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 45
-week_vec <- c(CUR_WEEK)
+CUR_WEEK <- 47
+LAST_WEEK <- 46
+week_vec <- c(LAST_WEEK, CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
 # week_num that differentiates microdata from each week.
@@ -626,9 +655,9 @@ appended_column_data_dictionary <-
     "inc_loss", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income since March 13, 2020. This is essentially a recoding of the wrkloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. This question was changed in the survey instrument with the beginning of phase 3.1. Values will be NA for week 28 onward. We do not recommend that users of this data compare the inc_loss and inc_loss_rv variables.",
     "inc_loss_rv", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income in the last four weeks. This is essentially a recoding of the wrklossrv variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. This question was introduced in the survey instrument with the beginning of phase 3.1. Values will be NA for prior to week 28. We do not recommend that users of this data compare the inc_loss and inc_loss_rv variables.",
     "expect_inc_loss", "Indicator variable for if a respondent (or anyone in their household) expects to experience a loss in employment income in the next 4 weeks due to the coronavirus. this is essentially a recoding of the expctloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. Question only asked through week 33. Value will be NA for week 34 onward.",
-    "payment_not_conf", "Indicator variable for if a respondent has little or no confidence in paying rent/mortgage next month or has already deferred payment for next months rent/mortgage. Note this excludes people who oen their homes free and clear or occupy thier house without payment of rent. They are coded as 1 if mortconf is  1,2 or ; s 0 if mortconf is 3 or 4; and NA otherwise",
-    "rent_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier rent next month or has already deferred. This is a limited to renters (ie tenure ==3)",
-    "mortgage_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier mortgage next month or has already deferred. This is a limited to owners paying mortgage (ie tenure ==2)",
+    "payment_not_conf", "Indicator variable for if a respondent has little or no confidence in paying rent/mortgage next month or has already deferred payment for next months rent/mortgage. Note this excludes people who oen their homes free and clear or occupy thier house without payment of rent. They are coded as 1 if mortconf is  1,2 or ; s 0 if mortconf is 3 or 4; and NA otherwise. This question was only asked through week 45. Values will be NA for week 46 onward.",
+    "rent_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier rent next month or has already deferred. This is a limited to renters (ie tenure ==3). This question was only asked through week 45. Values will be NA for week 46 onward.",
+    "mortgage_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier mortgage next month or has already deferred. This is a limited to owners paying mortgage (ie tenure ==2). This question was only asked through week 45. Values will be NA for week 46 onward.",
     "rent_caughtup", "Indicator variable for if a respondent's household is currently caught up on rent. This is a limited to renters (ie tenure ==3)",
     "mortgage_caughtup", "Indicator variable for if a respondent's household is currently caught up on mortage. This is a limited to owners paying mortgage (ie tenure ==2)",
     "food_insufficient", "Indicator variable for if a respondents household has sometimes or often had not enough to eat in the last 7 days. This is essentially a recoding of the curfoodsuff variable where 3 and 4 are coded as 1, 1 and 3 are coded as 0, and -88 and -99 are coded as NA",
@@ -645,7 +674,7 @@ appended_column_data_dictionary <-
     "depression_anxiety_signs", " Indicator variable if the respondent is showing either signs of major depressive disorder or generalized anxiety disorder. Respondents with missing responses to both anxiety_signs and depression_signs are coded as NA",
     "expense_dif", "Indicator variable for if a respondent reported difficulty for their household to pay for usual household expense n the last 7 days ",
     "telework", "Indicator variable for if at least one adult in this household substitutes some or all of their typical in-person work for telework because of the coronavirus pandemic. Question only asked through week 27. Value will be NA for week 28 onward.",
-    "metalhealth_unmet", "Indicator variable for if respondent needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason",
+    "metalhealth_unmet", "Indicator variable for if respondent needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason. This question was only asked through week 45. Values will be NA for week 46 onward.",
     "eviction_risk", "Indicator variable for if the household will very likely or extremely likely have to leave this home or apartment within the next two months because of eviction. ",
     "foreclosure_risk", "Indicator variable for if the houeshold will very likely or extremely likely have to leave this home within the next two months because of foreclosure",
     "learning_fewer", "Indicator variable for if the student(s) in the household spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days. Question only asked through week 27. Value will be NA for week 28 onward.",
@@ -705,8 +734,16 @@ num_all_missing <- all_missing %>%
   summarise(n_all_missing = sum(pct_missing == 1))
 
 # look at differences with adding new phase
+# phase 3.3 to 3.4
 dif_42_43 <- all_missing %>%
   filter(week_num %in% c("wk42", "wk43")) %>%
   pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
   pivot_wider(names_from = "week_num", values_from = "pct_missing") %>%
   filter(wk42 == 1 | wk43 == 1, wk42 != wk43)
+
+#phase 3.4 to 3.5
+dif_45_46 <- all_missing %>%
+  filter(week_num %in% c("wk45", "wk46")) %>%
+  pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
+  pivot_wider(names_from = "week_num", values_from = "pct_missing") %>%
+  filter(wk45 == 1 | wk46 == 1, wk45 != wk46)
