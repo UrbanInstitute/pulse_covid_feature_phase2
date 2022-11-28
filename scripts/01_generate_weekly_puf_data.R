@@ -37,8 +37,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
 
 
   # INPUT:
-  #   week_num (num): week number of Pulse survey (ie 1, 2,... 12, etc). Can be a vector if
-  #     you want to pull data for multiple weeks
+  #   week_num (num): week number of Pulse survey (ie 13, 14, 15..., etc). Can be a vector if
+  #     you want to pull data for multiple weeks. Should only be used for questionnaire 2 
+  #     week 13 or greater.
   #   output_filepaths (chr): Output folder where puf file and data dictionary
   #     be written to
   # OUPUT:
@@ -48,7 +49,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   week_num_padded <- str_pad(week_num, width = 2, side = "left", pad = "0")
   
   # starting in week 22, year changes to 2021
-  year <- ifelse(week_num > 21, 2021, 2020)
+  year <- case_when(week_num < 22 ~ 2020, 
+                    week_num >= 22 & week_num < 41 ~ 2021,
+                    week_num >= 41 ~ 2022)
 
 
   puf_url <- str_glue("https://www2.census.gov/programs-surveys/demo/datasets/hhp/{year}/wk{week_num}/HPS_Week{week_num_padded}_PUF_CSV.zip")
@@ -86,20 +89,124 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
   df <- read_csv(puf_filepath)
   rep_wt <- read_csv(rep_wt_filepath) %>%
     janitor::clean_names()
-
-  # add missing variables for weeks before 7
-  if (week_num < 7) {
+  
+  #Phase 2 (Week 13-17) and phase 3 (Week 18-27)
+  
+  if (week_num <= 27) {
     df <- df %>%
-      mutate(eip = NA_real_,
-             spndsrc1 = NA_real_,
-             spndsrc2 = NA_real_,
-             spndsrc3 = NA_real_,
-             spndsrc4 = NA_real_,
-             spndsrc5 = NA_real_,
-             spndsrc6 = NA_real_,
-             spndsrc7 = NA_real_)
-  }  
+      mutate(spndsrc9 = NA_real_,
+             spndsrc10 = NA_real_,
+             spndsrc11 = NA_real_,
+             spndsrc12 = NA_real_)
+  }
+    
+  #Phase 3.1: Week 28-33  
 
+  if (week_num > 27 & week_num <= 33) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV) %>%
+      mutate(tw_start = NA_real_,
+             tch_hrs = NA_real_,
+             spndsrc10 = NA_real_,
+             spndsrc11 = NA_real_,
+             spndsrc12 = NA_real_)
+  }
+    
+  #Phase 3.2: Week 34-39
+  
+  if (week_num > 33 & week_num <= 39) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV,
+             SPNDSRC1 = SPND_SRC1,
+             SPNDSRC2 = SPND_SRC2,
+             SPNDSRC3 = SPND_SRC3,
+             SPNDSRC4 = SPND_SRC4,
+             SPNDSRC5 = SPND_SRC5,
+             SPNDSRC6 = SPND_SRC6,
+             SPNDSRC7 = SPND_SRC7,
+             SPNDSRC8 = SPND_SRC8,
+             SPNDSRC9 = SPND_SRC9,
+             SPNDSRC10 = SPND_SRC10,
+             SPNDSRC11 = SPND_SRC11,
+             SPNDSRC12 = SPND_SRC12) %>%
+      mutate(expctloss = NA_real_,
+             tw_start = NA_real_,
+             tch_hrs = NA_real_)
+  }
+  
+  #Phase 3.3: Week 40 - 42
+  
+  if (week_num > 39 & week_num <= 42) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV,
+             SPNDSRC1 = SPND_SRC1,
+             SPNDSRC2 = SPND_SRC2,
+             SPNDSRC3 = SPND_SRC3,
+             SPNDSRC4 = SPND_SRC4,
+             SPNDSRC5 = SPND_SRC5,
+             SPNDSRC6 = SPND_SRC6,
+             SPNDSRC7 = SPND_SRC7,
+             SPNDSRC8 = SPND_SRC8,
+             SPNDSRC9 = SPND_SRC9,
+             SPNDSRC10 = SPND_SRC10,
+             SPNDSRC11 = SPND_SRC11,
+             SPNDSRC12 = SPND_SRC12) %>%
+      mutate(expctloss = NA_real_,
+             tw_start = NA_real_,
+             tch_hrs = NA_real_)
+  }
+  
+  #Phase 3.4: Week 43-45
+  
+  if (week_num > 42 & week_num <= 45) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV,
+             SPNDSRC1 = SPND_SRC1,
+             SPNDSRC2 = SPND_SRC2,
+             SPNDSRC3 = SPND_SRC3,
+             SPNDSRC4 = SPND_SRC4,
+             SPNDSRC5 = SPND_SRC5,
+             SPNDSRC6 = SPND_SRC6,
+             SPNDSRC7 = SPND_SRC7,
+             SPNDSRC8 = SPND_SRC8,
+             SPNDSRC9 = SPND_SRC9,
+             SPNDSRC10 = SPND_SRC10,
+             SPNDSRC11 = SPND_SRC11,
+             SPNDSRC12 = SPND_SRC12) %>%
+      mutate(expctloss = NA_real_,
+             tw_start = NA_real_,
+             tch_hrs = NA_real_)
+  }
+  
+  #Phase 3.5: Week 46-48
+  #Question about confidence making next rent or mortgage payment (mortconf)
+  #dropped from survey. Question about receiving needed mental healthcare
+  #(mh_notget) dropped from survey.
+  
+  if (week_num > 45 & week_num <= 48) {
+    df <- df %>%
+      rename(WRKLOSS = WRKLOSSRV,
+             SPNDSRC1 = SPND_SRC1,
+             SPNDSRC2 = SPND_SRC2,
+             SPNDSRC3 = SPND_SRC3,
+             SPNDSRC4 = SPND_SRC4,
+             SPNDSRC5 = SPND_SRC5,
+             SPNDSRC6 = SPND_SRC6,
+             SPNDSRC7 = SPND_SRC7,
+             SPNDSRC8 = SPND_SRC8,
+             SPNDSRC9 = SPND_SRC9,
+             SPNDSRC10 = SPND_SRC10,
+             SPNDSRC11 = SPND_SRC11,
+             SPNDSRC12 = SPND_SRC12) %>%
+      mutate(expctloss = NA_real_,
+             tw_start = NA_real_,
+             tch_hrs = NA_real_,
+             mortconf = NA_real_,
+             mh_notget = NA_real_)
+  }
+  
+  
+  
 
   df_clean <- df %>%
     janitor::clean_names() %>%
@@ -219,7 +326,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc2 == 1 ~ 1,
         # Set 0 if respondent answered atleast one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0 |
+           spndsrc9 >= 0 | spndsrc10 >= 0 | spndsrc11 >= 0 | spndsrc12 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -228,7 +336,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc3 == 1 ~ 1,
         # Set 0 if respondent answered at least one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0|
+           spndsrc9 >= 0 | spndsrc10 >= 0 | spndsrc11 >= 0 | spndsrc12 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -237,7 +346,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc5 == 1 ~ 1,
         # Set 0 if respondent answered at least one of the spending questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0|
+           spndsrc9 >= 0 | spndsrc10 >= 0 | spndsrc11 >= 0 | spndsrc12 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -246,7 +356,8 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
         spndsrc6 == 1 ~ 1,
         # Set 0 if respondent answered atleast one of the child education questions
         (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
-           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0) ~ 0,
+           spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0| spndsrc8 >= 0|
+           spndsrc9 >= 0 | spndsrc10 >= 0 | spndsrc11 >= 0 | spndsrc12 >= 0) ~ 0,
         # Set NA otherwise
         TRUE ~ NA_real_
       )),
@@ -312,7 +423,7 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
                                    forclose %in% c(3, 4) ~ 0,
                                    TRUE ~ NA_real_
       ),
-      #dummy for Proportion of adults with children in school who spend fewer 
+      #dummy for Proportion of adults with children in school who spend fewer
       #hours on learning activities in the past 7 days relative to before the pandemic
       learning_fewer= case_when(tch_hrs %in% c(1, 2) ~ 1,
                                 tch_hrs >= 3 ~ 0,
@@ -320,7 +431,9 @@ download_and_clean_puf_data <- function(week_num, output_filepath = "data/raw-da
       ),
       #SNAP spending
       spend_snap = case_when(spndsrc8 == 1 ~ 1,
-      (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0 | spndsrc8 >= 0) ~ 0
+      (spndsrc1 >= 0 | spndsrc2 >= 0 | spndsrc3 >= 0 | spndsrc4 >= 0 | 
+         spndsrc5 >= 0 | spndsrc6 >= 0 | spndsrc7 >= 0 | spndsrc8 >= 0 |
+         spndsrc9 >= 0 | spndsrc10 >= 0 | spndsrc11 >= 0 | spndsrc12 >= 0) ~ 0
       )
     ) %>%
     # Needed for rowwise sum calculations in anxiety_signs and depression_signs var
@@ -419,7 +532,7 @@ calculate_response_rate_metrics <- function(df_clean) {
     mutate(across(metrics_no_elig, ~if_else(is.na(.), 0, 1), .names = "answered_{.col}"),
            # used to approximate response rate for rent_not_conf, mortgage_not_conf, rent_caughtup,
            #   mortgage_caughtup, eviction_risk, foreclosure_risk
-           answered_tenure = if_else(tenure > 0, 1, 0),
+           answered_tenure = if_else(tenure > 0, 1, 0))
            # used to approximate response rate for learning_fewer
            # the rr for enroll is very low because many respondents without
            # school age kids may skip this question. Some that didn't answer this
@@ -431,8 +544,8 @@ calculate_response_rate_metrics <- function(df_clean) {
            # they have a member of the household over 18 in school, or to answer "no" (enroll3 == 1).
            # Because households without children are in the universe of respondents, we decide to keep them
            # in the denominator for purposes of response rate, but recognize that this is an imperfect metric.
-           answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
-                                       TRUE ~ 0)) 
+           # answered_enroll = case_when(enroll1 > 0 | enroll2 > 0 | enroll3 > 0 ~ 1,
+           #                             TRUE ~ 0)) 
   
 
   # This calculates the racial breakdown of people who answered each of the
@@ -483,24 +596,49 @@ calculate_response_rate_metrics <- function(df_clean) {
 }
 
 
-CUR_WEEK <- 27
-week_vec <- c(13:CUR_WEEK)
+CUR_WEEK <- 47
+LAST_WEEK <- 46
+week_vec <- c(LAST_WEEK, CUR_WEEK)
 
 # Read in all PUF files for the specified weeks, and write out one big PUF file. There will be a column named
 # week_num that differentiates microdata from each week.
 
 puf_all_weeks <- map_df(week_vec, download_and_clean_puf_data)
+
+
 metric_list <- calculate_response_rate_metrics(puf_all_weeks)
 rr_out <- metric_list[[1]]
 job_loss_out <- metric_list[[2]]
 prop_resp_race_out <- metric_list[[3]]
 
+# split inc_loss variable to reflect change in the survey question beginning
+# in week 28 (see data dictionary for details)
+puf_all_weeks <- puf_all_weeks %>%
+  mutate(inc_loss_rv = case_when(week_x >= 28 ~ as.numeric(inc_loss),
+                                  TRUE ~ NA_real_),
+         inc_loss = case_when(week_x >= 28 ~ NA_real_,
+                               TRUE ~ as.numeric(inc_loss))
+  )
+
 # Create public_use_files directory if it doesn't exist
 dir.create("data/intermediate-data", showWarnings = F)
 
-write_csv(puf_all_weeks, str_glue("data/intermediate-data/pulse_puf2_week_13_to_{CUR_WEEK}.csv"))
+write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_cur_week.csv"))
+
+puf_all_weeks_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_pulse_puf_most_recent.csv",
+                               col_types = c(default = "?", est_msa = "c"))
+puf_all_weeks <- bind_rows(puf_all_weeks_prev, puf_all_weeks)
+
 # Write out most recent CSV
 write_csv(puf_all_weeks, here("data/intermediate-data", "pulse_puf2_all_weeks.csv"))
+
+rr_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_race_all.csv") %>% distinct()
+job_loss_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_job_loss_all.csv") %>% distinct()
+prop_resp_race_out_prev <- read_csv("https://ui-census-pulse-survey.s3.amazonaws.com/phase2_rr_metrics_response_by_race_all.csv") %>% distinct()
+
+rr_out <- rbind(rr_out_prev, rr_out)
+job_loss_out <- rbind(job_loss_out_prev, job_loss_out)
+prop_resp_race_out <- rbind(prop_resp_race_out_prev, prop_resp_race_out)
 
 write_csv(rr_out, here("data/intermediate-data", "pulse2_rr_metrics_race_all.csv"))
 write_csv(job_loss_out, here("data/intermediate-data", "pulse2_rr_metrics_job_loss_all.csv"))
@@ -514,11 +652,12 @@ appended_column_data_dictionary <-
     "hisp_rrace", "Combination of Hispanic and Race column. Groups respondents into the following categories: Hispanic, White non Hispanic, Black non Hispanic, Asian non Hispanic, and Other race/two or more races",
     "uninsured", "Indicator variable for if a respondent is uninsured. This is 1 if the respondent reported that they have none of the available insurnace ooptions or only have insurance through the Indian Health Service. It is 0 if the respondents have some type of health insurance (excluding the Indian Health service)",
     "insured_public", "Indicator variable for if a respondent has public insurance. This is 1 if the respondent reported thaty had Medicare, Medicaid, or VA Health Insurance",
-    "inc_loss", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income since March 13, 2020. This is essentially a recoding of the wrkloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0",
-    "expect_inc_loss", "Indicator variable for if a respondent (or anyone in their household) expects to experience a loss in employment income in the next 4 weeks due to the coronavirus. this is essentially a recoding of the expctloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0",
-    "payment_not_conf", "Indicator variable for if a respondent has little or no confidence in paying rent/mortgage next month or has already deferred payment for next months rent/mortgage. Note this excludes people who oen their homes free and clear or occupy thier house without payment of rent. They are coded as 1 if mortconf is  1,2 or ; s 0 if mortconf is 3 or 4; and NA otherwise",
-    "rent_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier rent next month or has already deferred. This is a limited to renters (ie tenure ==3)",
-    "mortgage_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier mortgage next month or has already deferred. This is a limited to owners paying mortgage (ie tenure ==2)",
+    "inc_loss", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income since March 13, 2020. This is essentially a recoding of the wrkloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. This question was changed in the survey instrument with the beginning of phase 3.1. Values will be NA for week 28 onward. We do not recommend that users of this data compare the inc_loss and inc_loss_rv variables.",
+    "inc_loss_rv", "Indicator variable for if a respondent (or anyone in their houshold) experienced a loss in employment income in the last four weeks. This is essentially a recoding of the wrklossrv variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. This question was introduced in the survey instrument with the beginning of phase 3.1. Values will be NA for prior to week 28. We do not recommend that users of this data compare the inc_loss and inc_loss_rv variables.",
+    "expect_inc_loss", "Indicator variable for if a respondent (or anyone in their household) expects to experience a loss in employment income in the next 4 weeks due to the coronavirus. this is essentially a recoding of the expctloss variable with -88 and -99 coded as NA, 1 coded as 1 and 2 coded as 0. Question only asked through week 33. Value will be NA for week 34 onward.",
+    "payment_not_conf", "Indicator variable for if a respondent has little or no confidence in paying rent/mortgage next month or has already deferred payment for next months rent/mortgage. Note this excludes people who oen their homes free and clear or occupy thier house without payment of rent. They are coded as 1 if mortconf is  1,2 or ; s 0 if mortconf is 3 or 4; and NA otherwise. This question was only asked through week 45. Values will be NA for week 46 onward.",
+    "rent_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier rent next month or has already deferred. This is a limited to renters (ie tenure ==3). This question was only asked through week 45. Values will be NA for week 46 onward.",
+    "mortgage_not_conf", "Indicator variable for if a respondent has little or no confidence in paying thier mortgage next month or has already deferred. This is a limited to owners paying mortgage (ie tenure ==2). This question was only asked through week 45. Values will be NA for week 46 onward.",
     "rent_caughtup", "Indicator variable for if a respondent's household is currently caught up on rent. This is a limited to renters (ie tenure ==3)",
     "mortgage_caughtup", "Indicator variable for if a respondent's household is currently caught up on mortage. This is a limited to owners paying mortgage (ie tenure ==2)",
     "food_insufficient", "Indicator variable for if a respondents household has sometimes or often had not enough to eat in the last 7 days. This is essentially a recoding of the curfoodsuff variable where 3 and 4 are coded as 1, 1 and 3 are coded as 0, and -88 and -99 are coded as NA",
@@ -526,19 +665,19 @@ appended_column_data_dictionary <-
     "spend_credit", "Indicator variable for if a respondent reported using money from credit cards or loans in last 7 days to meet spending needs",
     "spend_ui", "Indicator variable for if a respondent reported using money from unemployment insurance (UI) benefit payments in last 7 days to meet spending needs",
     "spend_stimulus", "Indicator variable for if a respondent reported using money from stimulus (economic impact) payment in last 7 days to meet spending needs",
-    "anxious_score", "A recoding of the anxious variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
-    "worry_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
-    "interest_score", "A recoding of the interest variable to correctly reflect the numerical scores used to determine symptoms of major depresive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
-    "down_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of major depressive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3",
+    "anxious_score", "A recoding of the anxious variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3. Starting in week 34, question changed from asking about past 7 days to asking about past two weeks.",
+    "worry_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of generalized anxiety disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3. Starting in week 34, question changed from asking about past 7 days to asking about past two weeks.",
+    "interest_score", "A recoding of the interest variable to correctly reflect the numerical scores used to determine symptoms of major depresive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3. Starting in week 34, question changed from asking about past 7 days to asking about past two weeks.",
+    "down_score", "A recoding of the worry variable to correctly reflect the numerical scores used to determine symptoms of major depressive disorder. Specifically not at all = 0, several days = 1, more than half the days = 2, and nearly every day = 3. Starting in week 34, question changed from asking about past 7 days to asking about past two weeks.",
     "anxiety_signs", "Indicator variable for if the respondent is showing signs of generalized anxiety disorder. This is coded as 1 if the sum of anxious_score and worry_score is >= 3. Respondents with missing responses to both questions are coded as NA and 0 otherwise",
     "depression_signs", "Indicator variable for if the respondent is showing signs of major depressive disroder. This is coded as 1 if the sum of down_score and interest_score is >= 3.  Respondents with missing responses to both questions are coded as NA and 0 otherwise",
     "depression_anxiety_signs", " Indicator variable if the respondent is showing either signs of major depressive disorder or generalized anxiety disorder. Respondents with missing responses to both anxiety_signs and depression_signs are coded as NA",
     "expense_dif", "Indicator variable for if a respondent reported difficulty for their household to pay for usual household expense n the last 7 days ",
-    "telework", "Indicator variable for if at least one adult in this household substitutes some or all of their typical in-person work for telework because of the coronavirus pandemic",
-    "metalhealth_unmet", "Indicator variable for if respondent needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason",
+    "telework", "Indicator variable for if at least one adult in this household substitutes some or all of their typical in-person work for telework because of the coronavirus pandemic. Question only asked through week 27. Value will be NA for week 28 onward.",
+    "metalhealth_unmet", "Indicator variable for if respondent needed but did not get counseling or therapy from a mental health professional in the past 4 weeks, for any reason. This question was only asked through week 45. Values will be NA for week 46 onward.",
     "eviction_risk", "Indicator variable for if the household will very likely or extremely likely have to leave this home or apartment within the next two months because of eviction. ",
     "foreclosure_risk", "Indicator variable for if the houeshold will very likely or extremely likely have to leave this home within the next two months because of foreclosure",
-    "learning_fewer", "Indicator variable for if the student(s) in the household spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days ",
+    "learning_fewer", "Indicator variable for if the student(s) in the household spend less time on all learning activities relative to a school day before the coronavirus pandemic during the last 7 days. Question only asked through week 27. Value will be NA for week 28 onward.",
     "spend_snap", "Indicator variable for if household members are using SNAP to meet their spending needs in the past 7 days",
     "week_num", "The week number that the survey data is from",
     "state", "2 digit abbrevation of the state that respondents are from",
@@ -561,7 +700,7 @@ rr_metrics_data_dictionary <-
     "hisp_rrace", "Combination of Hispanic and Race column. Groups respondents into the following categories: Hispanic, White non Hispanic, Black non Hispanic, Asian non Hispanic, and Other race/two or more races",
     "answered_uninsured", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for uninsured metric",
     "answered_insured_public", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for insured_public metric",
-    "answered_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for inc_loss metric",
+    "answered_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for inc_loss and inc_loss_rv metric",
     "answered_expect_inc_loss", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for expect_inc_loss metric",
     "answered_food_insufficient", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for food_insufficient metric",
     "answered_spend_savings", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_savings metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
@@ -574,7 +713,7 @@ rr_metrics_data_dictionary <-
     "answered_metalhealth_unmet", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for mentalhealth_unmet metric",
     "answered_spend_snap", "Proportion of total respondents (overall and by race/ethnicity) that answered question(s) for spend_snap metric. All of the spending variables have the same response rate because they are calculated from different response choices from the same question.",
     "answered_tenure", "Proportion of total respondents (overall and by race/ethnicity) that answered tenure question. Used as proxy for housing variable response rate because tenure question determines eligibility for housing questions.",
-    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children under 18 (some of whom answer the question).",
+    "answered_enroll", "Proportion of total respondents (overall and by race/ethnicity) that answered school enrollment question. Used as proxy for learning_fewer variable response rate because enrollment question determines eligibility for housing questions. Response rate is low because asked of all respondents, even those without children under 18 (some of whom answer the question). Question only asked through week 27. Value will be NA for week 28 onward.",
     "week_num", "The week number that the survey data is from"
   )
 
@@ -583,3 +722,28 @@ write_csv(
   rr_metrics_data_dictionary,
   "data/intermediate-data/pulse_puf2_rr_metrics_data_dictionary.csv"
 )
+
+puf_all_weeks <- read_csv("data/intermediate-data/pulse_puf2_all_weeks.csv")
+all_missing <- puf_all_weeks %>%
+  group_by(week_num) %>%
+  summarise(across(.cols = where(is.numeric), .fns = ~mean(is.na(.x))))
+
+num_all_missing <- all_missing %>%
+  pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
+  group_by(week_num) %>%
+  summarise(n_all_missing = sum(pct_missing == 1))
+
+# look at differences with adding new phase
+# phase 3.3 to 3.4
+dif_42_43 <- all_missing %>%
+  filter(week_num %in% c("wk42", "wk43")) %>%
+  pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
+  pivot_wider(names_from = "week_num", values_from = "pct_missing") %>%
+  filter(wk42 == 1 | wk43 == 1, wk42 != wk43)
+
+#phase 3.4 to 3.5
+dif_45_46 <- all_missing %>%
+  filter(week_num %in% c("wk45", "wk46")) %>%
+  pivot_longer(-week_num, names_to = "variable", values_to = "pct_missing") %>%
+  pivot_wider(names_from = "week_num", values_from = "pct_missing") %>%
+  filter(wk45 == 1 | wk46 == 1, wk45 != wk46)

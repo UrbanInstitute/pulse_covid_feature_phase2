@@ -15,7 +15,7 @@ library(srvyr)
 ### ----------Read in cleaned data from disk -------------------------
 
 
-data_all <- read_csv(here("data/final-data", "phase2_all_to_current_week.csv"))
+data_all <- read_csv(here("data/final-data", "phase2_all_to_current_week_feature.csv")) 
 
 all_diff_ses <- read_csv(here("data/intermediate-data", "all_diff_ses.csv"))
 
@@ -32,7 +32,7 @@ svy_obj <- readRDS(here("data/intermediate-data", "svy.rds"))
 # of interest from the Census Pulse Survey, then add it to the tribble in
 # `generate_table_data`.
 
-readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
+readin_employ_loss_data_through_3_1 <- function(sheet, filepath, skip = 5) {
   # Specific cleaning function for table employ1, or lost employment income. All the
   # inputs to this fxn should be automatically selected by the wrapper function
   # and should NOT have to be manually entered.
@@ -50,8 +50,8 @@ readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
     col_names = c(
       "variable",
       "total",
-      "income_loss_since_mar_13",
-      "no_income_loss_since_mar_13",
+      "income_loss",
+      "no_income_loss",
       "did_not_report_loss_since_mar_13",
       "income_loss_next_4_wks",
       "no_income_next_4_wks",
@@ -80,7 +80,7 @@ readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
     # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
     mutate_at(vars(-variable), replace_na, 0) %>%
     mutate( # total_answered = total - did_not_report,
-      perc_lost_income = income_loss_since_mar_13 / (total - did_not_report_loss_since_mar_13),
+      perc_lost_income = income_loss / (total - did_not_report_loss_since_mar_13),
       total_answered_lost = (total - did_not_report_loss_since_mar_13),
       perc_lose_income = income_loss_next_4_wks / (total - did_not_report_loss_next_4_wks),
       total_answered_lose = (total - did_not_report_loss_next_4_wks),
@@ -91,7 +91,63 @@ readin_employ_loss_data <- function(sheet, filepath, skip = 5) {
 
   wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
   result <- data_by_race %>%
-    select(variable, geography, total_answered_lose, total_answered_lost, income_loss_since_mar_13, income_loss_next_4_wks, perc_lost_income, perc_lose_income) %>%
+    select(variable, geography, total_answered_lose, total_answered_lost, income_loss, income_loss_next_4_wks, perc_lost_income, perc_lose_income) %>%
+    mutate(week_num = wk_num)
+  return(result)
+}
+
+readin_employ_loss_data_3_2 <- function(sheet, filepath, skip = 5) {
+  # Specific cleaning function for table employ1, or lost employment income. All the
+  # inputs to this fxn should be automatically selected by the wrapper function
+  # and should NOT have to be manually entered.
+  #
+  # INPUTS:
+  #   sheet (chr): Name of sheet to read in. This usually does NOT
+  #   have to be manually specified and is instead done automatically in
+  #   wrapper functions
+  #   filepath (chr): Local filepath to food insecurity table after its been downloaded
+  # OUPUT:
+  #   result: A datafrmae where every column is a race/ethnicity and the columns are variables
+  #     of interest
+  data <- read_excel(filepath,
+                     skip = skip,
+                     col_names = c(
+                       "variable",
+                       "total",
+                       "income_loss",
+                       "no_income_loss",
+                       "did_not_report"
+                     ),
+                     col_types = c(
+                       "text",
+                       "numeric",
+                       "numeric",
+                       "numeric",
+                       "numeric"
+                     ),
+                     sheet = sheet
+  )
+  
+  data_by_race <- data %>%
+    # Assumes only rows with Hispanic in title will be race vars. True for now
+    filter(str_detect(
+      variable,
+      "Hispanic"
+    )) %>%
+    mutate_at(vars(-variable), as.numeric) %>%
+    # Replace NA's with 0. DANGEROUS! But this seems correct after adding up Census figrues
+    mutate_at(vars(-variable), replace_na, 0) %>%
+    mutate( # total_answered = total - did_not_report,
+      perc_lost_income = income_loss / (total - did_not_report),
+      total_answered_lost = (total - did_not_report),
+      geography = sheet
+    ) %>%
+    # Removing Hispanic Origin and Race Header Row
+    slice(-1)
+  
+  wk_num <- str_match(filepath, "_(.*?).xlsx")[,2]
+  result <- data_by_race %>%
+    select(variable, geography, total_answered_lost, income_loss, perc_lost_income) %>%
     mutate(week_num = wk_num)
   return(result)
 }
@@ -344,20 +400,39 @@ readin_rent_caughtup_data <- function(sheet, filepath, skip = 5) {
   
   data <- tryCatch(
     {
-      data <- read_excel(filepath,
-                         skip = skip,
-                         col_names = c(
-                           "variable",
-                           "total",
-                           "occup_no_rent",
-                           "payment_caughtup_yes",
-                           "payment_caughtup_no",
-                           "did_not_report",
-                           "did_not_report_tenure"
-                         ),
-                         col_types = "text",
-                         sheet = sheet
-      )
+      # account for datatable change starting phase 3.3
+      if (as.numeric(str_sub(filepath, -7, -6)) > 39){
+        data <- read_excel(filepath,
+                           skip = skip,
+                           col_names = c(
+                             "variable",
+                             "total",
+                             "payment_caughtup_yes",
+                             "payment_caughtup_no",
+                             "did_not_report",
+                             "occup_no_rent",
+                             "did_not_report_tenure"
+                           ),
+                           col_types = "text",
+                           sheet = sheet
+        )
+      } else {
+        data <- read_excel(filepath,
+                           skip = skip,
+                           col_names = c(
+                             "variable",
+                             "total",
+                             "occup_no_rent",
+                             "payment_caughtup_yes",
+                             "payment_caughtup_no",
+                             "did_not_report",
+                             "did_not_report_tenure"
+                           ),
+                           col_types = "text",
+                           sheet = sheet
+        )
+      }
+      
     },
     error = function(err) {
       
@@ -722,16 +797,24 @@ generate_table_data <- function(table_var, week_num) {
     return(table_data)
   }
   
-  table_var <- ifelse(week_num > 21 & table_var == "food2b", "food2", table_var)
+  table_var <- case_when((week_num > 21) & (week_num < 34) & (table_var == "food2b") ~ "food2", 
+                         (week_num >= 34) & (table_var == "food2b") ~ "food1",
+                         TRUE ~ table_var)
   
   # starting with week 22, food security table is food2 (bc dropped food2a)
-  food_table <- ifelse(week_num > 21, "food2", "food2b")
+  food_table <- case_when(week_num > 21 & week_num < 34 ~ "food2", 
+                          week_num >= 34 ~ "food1",
+                          TRUE ~ "food2b")
+  
+  inc_fxn <- ifelse(week_num >= 34, 
+                    "readin_employ_loss_data_3_2", 
+                    "readin_employ_loss_data_through_3_1")
 
   # Tribble showing Pulse table and thier accompanying cleaning function
   # Need to add to this tribble as we add more tables
   fxn_table_xwalk <- tribble(
     ~table, ~cleaning_fxn, ~metric,
-    "employ1", "readin_employ_loss_data", "employment_income_loss",
+    "employ1", inc_fxn, "employment_income_loss",
     food_table, "readin_food_data", "food_insecurity",
     "housing2a", "readin_conf_pay_mortgage_data", "confidence_paying_mortgage",
     "housing2b", "readin_conf_pay_rent_data", "confidence_paying_rent",
@@ -748,7 +831,9 @@ generate_table_data <- function(table_var, week_num) {
     filter(table == table_var) %>%
     pull(cleaning_fxn)
 
-  year <- ifelse(week_num > 21, 2021, 2020)
+  year <- case_when(week_num <= 21 ~ 2020, 
+                    week_num > 21 & week_num <=41 ~ 2021, 
+                    week_num > 41 ~ 2022)
   
   # Construct data url and downlaod
   data_url <- str_glue("https://www2.census.gov/programs-surveys/demo/tables/hhp/{year}/wk{week_num}/{table_var}_week{week_num}.xlsx")
@@ -817,22 +902,23 @@ generate_table_data <- function(table_var, week_num) {
   return(table_data)
 }
 
-CUR_WEEK <- 27
+CUR_WEEK <- 47
 week_num <- 13:CUR_WEEK
 week_num_spend <- 13:CUR_WEEK
+week_num_tw <- 13:27
 
 
-test_within_0.001 <- function(vec1, vec2) {
-  # Helper fxn that checks if vec1 and vec2 are equal (+- 0.001)
+test_within_0.005 <- function(vec1, vec2) {
+  # Helper fxn that checks if vec1 and vec2 are equal (+- 0.005)
 
-  if (dplyr::between(vec1, vec2 - 0.002, vec2 + 0.002)) {
+  if (dplyr::between(vec1, vec2 - 0.005, vec2 + 0.005)) {
     return(TRUE)
   } else {
     return(FALSE)
   }
 }
 # vectorize above function
-test_within_0.001_v <- Vectorize(test_within_0.001)
+test_within_0.005_v <- Vectorize(test_within_0.005)
 
 #### ----Define and run tests------
 
@@ -848,29 +934,25 @@ all_metros <- svy_obj %>%
   unique() %>%
   na.omit()
 
+# metrics available to test as of phase 3.5
 metrics <- c(
   "depression_anxiety_signs",
   "eviction_risk",
-  "expect_inc_loss",
   "expense_dif",
   "food_insufficient",
   "foreclosure_risk",
   "inc_loss",
   "insured_public",
-  "learning_fewer",
-  "mentalhealth_unmet",
   "mortgage_caughtup",
-  "mortgage_not_conf",
   "rent_caughtup",
-  "rent_not_conf",
   "spend_credit",
   "spend_savings",
   "spend_snap",
   "spend_stimulus",
   "spend_ui",
-  "telework",
   "uninsured"
   )
+
 
 
 ### Check that data from data tables match rolling average estimates we calculated
@@ -902,8 +984,8 @@ check_food_insuff_numbers <- function(tables = "food2b", point_df = data_all, wk
 
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
-  assert("Food Insufficiency race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
+  assert("Food Insufficiency race numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 
@@ -935,29 +1017,29 @@ check_rent_caughtup_numbers <- function(tables = "housing1b", point_df = data_al
   
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
-  assert("rent caught up numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
+  assert("rent caught up numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum = week_num) {
 
+  
   # Generate pulse data table
   pulse_data_tables <- tables %>%
     map_df(generate_table_data, week_num = wknum) %>%
-    select(-perc_lost_income, -perc_lose_income, week_num, race_var, everything()) %>%
-    right_join(week_crosswalk) %>%
+    #select(-perc_lost_income, -perc_lose_income, week_num, race_var, everything()) %>%
+    #right_join(week_crosswalk) %>%
     group_by(week_num, geography, race_var) %>%
     summarize(
-      inc_loss = sum(income_loss_since_mar_13) / sum(total_answered_lost),
-      expect_inc_loss = sum(income_loss_next_4_wks) / sum(total_answered_lose)
+      inc_loss = sum(income_loss) / sum(total_answered_lost)
     ) %>%
-    pivot_longer(cols = inc_loss:expect_inc_loss, names_to = "metric", values_to = "mean") %>%
+    pivot_longer(cols = inc_loss, names_to = "metric", values_to = "mean") %>%
     ungroup() 
 
 
   # Join to our data
   data_comparisons_by_race <- data_all %>%
-    filter(metric == "inc_loss" | metric == "expect_inc_loss") %>%
+    filter(metric == "inc_loss") %>%
     left_join(pulse_data_tables, by = c("geography", "week_num", "race_var", "metric")) %>%
     mutate(
       mean.x = round(mean.x, 4),
@@ -966,8 +1048,8 @@ check_income_numbers <- function(tables = "employ1", point_df = data_all, wknum 
 
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
-  assert("Income Loss and Expected Income Loss race numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
+  assert("Income Loss race numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_all, wknum = week_num) {
@@ -996,12 +1078,12 @@ check_eviction_risk_numbers <- function(tables = "housing3b", point_df = data_al
   
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
-  assert("eviction risk numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
+  assert("eviction risk numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 
-check_telework_start_numbers <- function(tables = "transport1", point_df = data_all, wknum = week_num) {
+check_telework_start_numbers <- function(tables = "transport1", point_df = data_all, wknum = week_num_tw) {
   
   # Generate pulse data table
   pulse_data_tables <- tables %>%
@@ -1028,8 +1110,8 @@ check_telework_start_numbers <- function(tables = "transport1", point_df = data_
   
   # Check that race-geography numbers match up (within 0.001 to account for rounding errors)
   ind_race_nums <- data_comparisons_by_race %>%
-    filter(!is.na(mean.y))
-  assert("telework numbers match up", test_within_0.001_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
+    filter(!is.na(mean.y), !is.na(mean.x))
+  assert("telework numbers match up", test_within_0.005_v(ind_race_nums$mean.x, ind_race_nums$mean.y))
 }
 
 # TODO: More Checks
@@ -1040,12 +1122,11 @@ check_telework_start_numbers()
 check_rent_caughtup_numbers()
 
 ### Check that SE from doing regressions matching SE we get using svyby and svycontrast
-# Check Standard Errors for black inc_loss in wk1_2 in Atlanta
 
 check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses, svy = svy_obj) {
   sd_calcs <- se_df %>%
     filter(
-      week == wk_num,
+      week_num == wk_num,
       geography == geo,
       race_indicator == race_ind,
       metric == metr
@@ -1109,15 +1190,17 @@ check_glm_se_match <- function(wk_num, geo, race_ind, metr, se_df = all_diff_ses
   return(TRUE)
 }
 
+LAST_WEEK <- CUR_WEEK -1
+wk_to_test <- c(str_glue('wk{LAST_WEEK}'), str_glue("wk{CUR_WEEK}"))
+
 # Construct random list of 10 ge/race/metric/week combinations to test
 random_test_list <- tibble(
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", "wk21", 
-                    "wk22", "wk23", "wk24", "wk25", "wk26", "wk27"), size = 10, replace = TRUE),
+  wk_num = sample(wk_to_test, size = 10, replace = TRUE),
   geo = c(sample(all_states, 7), sample(all_metros, 3)),
   race_ind = sample(c("black", "asian", "hispanic", "other"), 10, replace = TRUE),
   metr = sample(metrics,10, replace = TRUE)
-)
+) 
 
 se_glm_test_results <- random_test_list %>% pmap_lgl(check_glm_se_match)
 
@@ -1191,7 +1274,7 @@ test_against_manual <- function(svy = svy_obj, data = all_diff_ses, metric_name,
   tstat_race_total <- mean_race_total / se_race_total
 
   ra_stats <- data %>%
-    filter(week == wk_num) %>%
+    filter(week_num == wk_num) %>%
     filter(race_indicator == race_name) %>%
     filter(metric == metric_name) %>%
     filter(geography == geo_name) %>%
@@ -1291,12 +1374,11 @@ test_against_manual_us <- function(svy = svy_obj, data = us_diff_ses, metric_nam
 random_test_list_manual <- tibble(
   metric_name = sample(metrics, 10, replace = TRUE),
   # replace with last two weeks
-  wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", 
-                    "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27"), size = 10, replace = TRUE),
+  wk_num = sample(wk_to_test, size = 10, replace = TRUE),
   race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE),
   geo_name = c(sample(all_states, 7), sample(all_metros, 3)),
   geo_col = c(rep("state", 7), rep("cbsa_title", 3))
-)
+) 
 
 # Test manual calculations for specific geographies and all US
 se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_manual)
@@ -1304,8 +1386,7 @@ se_manual_calc_test_results <- random_test_list_manual %>% pmap_df(test_against_
 random_test_list_us = tibble(
    metric_name = sample(metrics, 10, replace = TRUE),
    #replace last two weeks
-   wk_num = sample(c("wk13", "wk14", "wk15", "wk16", "wk17", "wk18", "wk19", "wk20", 
-                     "wk21", "wk22", "wk23", "wk24", "wk25", "wk26", "wk27"), size = 10, replace = TRUE),
+   wk_num = sample(wk_to_test, size = 10, replace = TRUE),
    race_name = sample(c("black", "asian", "hispanic", "other", "white"), 10, replace = TRUE)
  )
 
